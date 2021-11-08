@@ -1,4 +1,4 @@
-# Temporal Spike Attribution - A local feature-based explanation for Spiking Neural Networks
+# Temporal Spike Attribution - A local feature-based explanation for temporally coded Spiking Neural Networks
 
 This repository contains the Python 3 code for Temporal Spike Attribution (TSA), a method to extract 
 feature attribution explanations for temporally coded Spiking Neural Network. 
@@ -53,7 +53,10 @@ are located in `models`, but the tuned and trained model weights are also availa
 
 ##### Instructions
 * Run `python data/data_generation.py` to generate and save the datasets in the *times, units* format. `data/dataset900.pkl` then corresponds to the dataset used for tuning and training, while `data/dataset_max.pkl` will be used for the TSA experiments.
-* 
+* Run `python models/tuning_onelayersnn.py`, `python models/tuning_twolayersnn.py`, `python models/tuning_threelayersnn.py` to tune the hyperparameters of the different SNN models respectively.
+* Alternatively, the chosen hyperparameters can be inspected as `models/best_params_one.pkl, models/best_params_two.pkl, models/best_params_three.pkl` respectively.
+* Run `python models/training_onelayersnn.py`, `python models/training_twolayersnn.py`, `python models/training_threelayersnn.py` to train the SNN models.
+* Alternatively, the trained weights are available at `models/weights_one_epoch4.pt, models/weights_two_epoch63.pt, models/weights_three_epoch48.pt`.
 
 ### Explanation extraction
 
