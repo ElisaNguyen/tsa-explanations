@@ -27,7 +27,7 @@ available in the [UCI ML Repository](https://archive.ics.uci.edu/ml/datasets/Act
 
 In the frame of this work, the data has been interpreted as one long time series per subject ranging across all the days
 of data collection. For this, the data has been preprocessed and transformed to build one long time series.
-The code for this is in the `preprocessing` and folders. Additionally, the classification task is broken down to each second, 
+The code for this is in the `preprocessing` and folders. A constant bias sensor activation is added. Additionally, the classification task is broken down to each second, 
 meaning that the models predict the subject's current activity at each second.
 
 ##### Instructions
