@@ -94,19 +94,19 @@ def assign_random_attribution(X_spikes, min_attr, max_attr):
 
 def generate_baseline_data(testset_t, X_data, y_data, path):
     baseline_explanations = {}
-    max_attr = get_max_attr(load_obj('/local/work/enguyen/evaluation/onelayer_explanations_A.pkl'))
-    max_attr = max(max_attr, get_max_attr(load_obj('/local/work/enguyen/evaluation/onelayer_explanations_B.pkl')))
-    max_attr = max(max_attr, get_max_attr(load_obj('/local/work/enguyen/evaluation/twolayer_explanations_A.pkl')))
-    max_attr = max(max_attr, get_max_attr(load_obj('/local/work/enguyen/evaluation/twolayer_explanations_B.pkl')))
-    max_attr = max(max_attr, get_max_attr(load_obj('/local/work/enguyen/evaluation/threelayer_explanations_A.pkl')))
-    max_attr = max(max_attr, get_max_attr(load_obj('/local/work/enguyen/evaluation/threelayer_explanations_B.pkl')))
+    max_attr = -50
+    min_attr = 50
+    for filename in os.listdir('/local/work/enguyen/evaluation/tsa-s'):
+        f = os.path.join('/local/work/enguyen/evaluation/tsa-s', filename)
+        if os.path.isfile(f):
+            max_attr = max(max_attr, get_max_attr(f))
+            min_attr = min(min_attr, get_min_attr(f))
+    for filename in os.listdir('/local/work/enguyen/evaluation/tsa-ns'):
+        f = os.path.join('/local/work/enguyen/evaluation/tsa-ns', filename)
+        if os.path.isfile(f):
+            max_attr = max(max_attr, get_max_attr(f))
+            min_attr = min(min_attr, get_min_attr(f))
 
-    min_attr = get_min_attr(load_obj('/local/work/enguyen/evaluation/onelayer_explanations_A.pkl'))
-    min_attr = min(min_attr, get_min_attr(load_obj('/local/work/enguyen/evaluation/onelayer_explanations_B.pkl')))
-    min_attr = min(min_attr, get_min_attr(load_obj('/local/work/enguyen/evaluation/twolayer_explanations_A.pkl')))
-    min_attr = min(min_attr, get_min_attr(load_obj('/local/work/enguyen/evaluation/twolayer_explanations_B.pkl')))
-    min_attr = min(min_attr, get_min_attr(load_obj('/local/work/enguyen/evaluation/threelayer_explanations_A.pkl')))
-    min_attr = min(min_attr, get_min_attr(load_obj('/local/work/enguyen/evaluation/threelayer_explanations_B.pkl')))
     for t in tqdm(testset_t):
         # get the relevant part of the dataset, this is done for performance reasons
         start_t = t - 3600 if t >= 3600 else 0
@@ -119,24 +119,37 @@ def generate_baseline_data(testset_t, X_data, y_data, path):
         X_spikes, _ = next(data_generator)
 
         baseline_explanations[t] = (
-        assign_random_attribution(X_spikes.to_dense()[0].t(), min_attr, max_attr).detach(), y[0][-1])
+            assign_random_attribution(X_spikes.to_dense()[0].t(), min_attr, max_attr).detach(), y[0][-1])
         save_obj(baseline_explanations, path)
 
+
 # TSA-S explanations
-extract_information_for_quantitative_analysis(A_testset_t, 1, dataset['X_test_A'], dataset['y_test_A'], 's', 'onelayer_explanations_A')
-extract_information_for_quantitative_analysis(B_testset_t, 1, dataset['X_test_B'], dataset['y_test_B'], 's', 'onelayer_explanations_B')
-extract_information_for_quantitative_analysis(A_testset_t, 2, dataset['X_test_A'], dataset['y_test_A'], 's', 'twolayer_explanations_A')
-extract_information_for_quantitative_analysis(B_testset_t, 2, dataset['X_test_B'], dataset['y_test_B'], 's', 'twolayer_explanations_B')
-extract_information_for_quantitative_analysis(A_testset_t, 3, dataset['X_test_A'], dataset['y_test_A'], 's', 'threelayer_explanations_A')
-extract_information_for_quantitative_analysis(B_testset_t, 3, dataset['X_test_B'], dataset['y_test_B'], 's', 'threelayer_explanations_B')
+extract_information_for_quantitative_analysis(A_testset_t, 1, dataset['X_test_A'], dataset['y_test_A'], 's',
+                                              'tsa-s/onelayer_explanations_A')
+extract_information_for_quantitative_analysis(B_testset_t, 1, dataset['X_test_B'], dataset['y_test_B'], 's',
+                                              'tsa-s/onelayer_explanations_B')
+extract_information_for_quantitative_analysis(A_testset_t, 2, dataset['X_test_A'], dataset['y_test_A'], 's',
+                                              'tsa-s/twolayer_explanations_A')
+extract_information_for_quantitative_analysis(B_testset_t, 2, dataset['X_test_B'], dataset['y_test_B'], 's',
+                                              'tsa-s/twolayer_explanations_B')
+extract_information_for_quantitative_analysis(A_testset_t, 3, dataset['X_test_A'], dataset['y_test_A'], 's',
+                                              'tsa-s/threelayer_explanations_A')
+extract_information_for_quantitative_analysis(B_testset_t, 3, dataset['X_test_B'], dataset['y_test_B'], 's',
+                                              'tsa-s/threelayer_explanations_B')
 
 # TSA-NS explanations
-extract_information_for_quantitative_analysis(A_testset_t, 1, dataset['X_test_A'], dataset['y_test_A'], 'ns', 'onelayer_explanations_A')
-extract_information_for_quantitative_analysis(B_testset_t, 1, dataset['X_test_B'], dataset['y_test_B'], 'ns', 'onelayer_explanations_B')
-extract_information_for_quantitative_analysis(A_testset_t, 2, dataset['X_test_A'], dataset['y_test_A'], 'ns', 'twolayer_explanations_A')
-extract_information_for_quantitative_analysis(B_testset_t, 2, dataset['X_test_B'], dataset['y_test_B'], 'ns', 'twolayer_explanations_B')
-extract_information_for_quantitative_analysis(A_testset_t, 3, dataset['X_test_A'], dataset['y_test_A'], 'ns', 'threelayer_explanations_A')
-extract_information_for_quantitative_analysis(B_testset_t, 3, dataset['X_test_B'], dataset['y_test_B'], 'ns', 'threelayer_explanations_B')
+extract_information_for_quantitative_analysis(A_testset_t, 1, dataset['X_test_A'], dataset['y_test_A'], 'ns',
+                                              'tsa-ns/onelayer_explanations_A')
+extract_information_for_quantitative_analysis(B_testset_t, 1, dataset['X_test_B'], dataset['y_test_B'], 'ns',
+                                              'tsa-ns/onelayer_explanations_B')
+extract_information_for_quantitative_analysis(A_testset_t, 2, dataset['X_test_A'], dataset['y_test_A'], 'ns',
+                                              'tsa-ns/twolayer_explanations_A')
+extract_information_for_quantitative_analysis(B_testset_t, 2, dataset['X_test_B'], dataset['y_test_B'], 'ns',
+                                              'tsa-ns/twolayer_explanations_B')
+extract_information_for_quantitative_analysis(A_testset_t, 3, dataset['X_test_A'], dataset['y_test_A'], 'ns',
+                                              'tsa-ns/threelayer_explanations_A')
+extract_information_for_quantitative_analysis(B_testset_t, 3, dataset['X_test_B'], dataset['y_test_B'], 'ns',
+                                              'tsa-ns/threelayer_explanations_B')
 
 generate_baseline_data(A_testset_t, dataset['X_test_A'], dataset['y_test_A'],
                        '/local/work/enguyen/evaluation/baseline_explanations_A.pkl')
