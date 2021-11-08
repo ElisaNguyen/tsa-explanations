@@ -56,7 +56,8 @@ def live_plot(loss):
 def sparse_data_generator_from_spikes(X, y, batch_size, nb_inputs, max_time, shuffle=False):
     """
     This generator takes a spike dataset and generates spiking network input as sparse tensors.
-    Original Code from https://github.com/fzenke/spytorch, slight changes in this work
+    Original from Friedemann Zenke (https://github.com/fzenke/spytorch), in this version there are changes
+    License: http://creativecommons.org/licenses/by/4.0/
 
     :param X: The data ( sample x event x 2 ) the last dim holds (time,neuron) tuples
     :param y: The labels
@@ -156,6 +157,8 @@ class SNN:
     def _set_alpha(self):
         """
         Setter for alpha, the decay parameter for the synaptic currents.
+        Original from Friedemann Zenke (https://github.com/fzenke/spytorch), made into a function in this version
+        License: http://creativecommons.org/licenses/by/4.0/
         """
         alpha = float(np.exp(-self.time_step / self.tau_syn))
         return alpha
@@ -163,6 +166,8 @@ class SNN:
     def _set_beta(self):
         """
         Setter for beta, the decay parameter for the membrane potentials.
+        Original from Friedemann Zenke (https://github.com/fzenke/spytorch), made into a function in this version
+        License: http://creativecommons.org/licenses/by/4.0/
         """
         beta = float(np.exp(-self.time_step / self.tau_mem))
         return beta
@@ -170,6 +175,8 @@ class SNN:
     def _set_initial_weights(self):
         """
         Setter for the network initial weights.
+        Original from Friedemann Zenke (https://github.com/fzenke/spytorch), made into a function in this version
+        License: http://creativecommons.org/licenses/by/4.0/
         """
         weight_scale = 0.2
         weights = []
@@ -183,7 +190,8 @@ class SNN:
     def run_parallel(self, inputs):
         """
         Runs the SNN for 1 batch within one epoch
-        Original from https://github.com/fzenke/spytorch, in this version there are changes
+        Original from Friedemann Zenke (https://github.com/fzenke/spytorch), in this version there are changes
+        License: http://creativecommons.org/licenses/by/4.0/
         :param inputs: spiking input to the network
         :returns: membrane potentials and output spikes of all layers
         """
@@ -222,6 +230,8 @@ class SNN:
     def train(self, x_data, y_data, path, early_stopping=True):
         """
         Training method, either with early stopping and patience of 10 or for 20 epochs
+        Original from Friedemann Zenke (https://github.com/fzenke/spytorch), in this version there are changes
+        License: http://creativecommons.org/licenses/by/4.0/
         """
         params = self.weights
         optimizer = optim.Adam(params, lr=self.lr)
@@ -295,6 +305,8 @@ class SNN:
     def predict(self, x_data, y_data):
         """
         Predicts the class of the input data
+        Original from Friedemann Zenke (https://github.com/fzenke/spytorch), in this version there are slight changes
+        License: http://creativecommons.org/licenses/by/4.0/
         :param x_data: X
         :param y_data: ground truth
         :returns: y_pred
@@ -312,6 +324,8 @@ class SNN:
     def evaluate_loss(self, x_data, y_data):
         """
         Evaluates with NLL loss
+        Original from Friedemann Zenke (https://github.com/fzenke/spytorch), made into a function in this version
+        License: http://creativecommons.org/licenses/by/4.0/
         :param x_data: X
         :param y_data: ground truth
         :returns: loss
@@ -360,7 +374,8 @@ class SurrGradSpike(torch.autograd.Function):
     Here we use the normalized negative part of a fast sigmoid 
     as this was done in Zenke & Ganguli (2018).
 
-    From https://github.com/fzenke/spytorch
+    Original from Friedemann Zenke (https://github.com/fzenke/spytorch)
+    License: http://creativecommons.org/licenses/by/4.0/
     """
 
     scale = 100.0  # controls steepness of surrogate gradient
