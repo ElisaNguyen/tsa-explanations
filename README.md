@@ -12,7 +12,7 @@ the classification confidence is visualised to give context about the model beha
 
 ![Example image of a TSA-S explanation](images/explanation_one.png)
 
-### Prerequisites
+### Required Python packages
 * numpy
 * pandas
 * scikit-learn
@@ -36,8 +36,28 @@ meaning that the models predict the subject's current activity at each second.
 3. Run `python preprocessing/adl_data_writing.py` to generate the "long time series" data.
 
 ### SNN model building
-For model training, the dataset was then split into non-overlapping windows of 900 seconds. For the explanation experiments,
-the whole time series per subject is maintained. 
+The SNN models use LIF neurons, temporal coding and were implemented as recurrent networks in discrete time trained 
+with a fast sigmoid surrogate gradient as per tutorial of Dr. F. Zenke[^1]. There are some changes to Dr. Zenke's original
+code as the membrane potential is retained in between epochs and batches to approximate sequential processing of the time series.
+Purely sequential processing requires too much computation time, which is the reason for the approximation. 
+
+To build the models, the data has to be transformed into a *spike time, spike unit* format. 
+The dataset was split into non-overlapping windows of 900 seconds for tuning and training. 
+For the explanation experiments, the whole time series per subject is maintained. 
+
+Three SNNs with one, two, three layers respectively are tuned and trained on the ADL task, and their predictions are explained by TSA.
+
+The following hyperparameters were tuned based on the NLL loss on the validation set after 20 epochs training: $\Delta t, \tau_{syn}, \tau_{mem}$, learning rate, batch size, hidden layer sizes. 
+Then, the models are trained with early stopping and a patience of 20 epochs. The scripts to rerun the tuning and training 
+are located in `models`, but the tuned and trained model weights are also available. 
+
+##### Instructions
+* Run `python data/data_generation.py` to generate and save the datasets in the *times, units* format. `data/dataset900.pkl` then corresponds to the dataset used for tuning and training, while `data/dataset_max.pkl` will be used for the TSA experiments.
+* 
+
+### Explanation extraction
+
+### Explanation evaluation
 
 [^1]: Per tutorial of Friedemann Zenke (https://github.com/fzenke/spytorch, License: http://creativecommons.org/licenses/by/4.0/)
 
