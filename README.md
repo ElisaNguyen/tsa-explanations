@@ -83,7 +83,8 @@ For the experiments, a subset of time stamps are defined to extract explanations
 These are saved in `data/quantitative_test_t_A.pkl` and `data/quantitative_test_t_B.pkl` for the data of subjects A and B respectively.
 
 #### Instructions
-* 
+* Create folders `tsa/tsa-s` and `tsa/tsa-ns`.
+* Run `python tsa/explanation_extraction.py` to generate TSA-S, TSA-NS and baseline explanations (random attribution).
 
 ### Evaluation of TSA 
 
