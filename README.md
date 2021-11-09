@@ -87,9 +87,28 @@ These are saved in `data/quantitative_test_t_A.pkl` and `data/quantitative_test_
 * Run `python tsa/explanation_extraction.py` to generate TSA-S, TSA-NS and baseline explanations (random attribution).
 
 ### Evaluation of TSA 
+TSA's explanatory performance is evaluated in faithfulness (explanation selectivity[^4]), attribution sufficiency, stability (max-sensitivity[^5]
+using the Frobenius norm). 
+
+Faithfulness refers to TSA's ability to faithfully represent the model behaviour. 
+Attribution sufficiency addresses whether the feature attributions found by TSA identify a sufficient set of features in the input that are sufficient to the model prediction.
+Stability refers to the behavior of TSA when presented with similar input. 
+
+The scripts to run this evaluation are provided in the `tsa` folder. 
+
+#### Instructions
+* Create folders `faithfulness`, `sufficiency`, `sensitivity` with the subfolders `tsa-s` and `tsa-ns` each.
+* Run `python tsa/faithfulness_evaluation.py` (long run-time), `python tsa/sufficiency_evaluation.py`, `python tsa/sensitivity_evaluation.py`. 
+* The results will be in the subfolders created before.
+* View the results by running the notebook `tsa/quantitative_analysis_results.ipynb`.
+
 
 [^1]: Per tutorial of Friedemann Zenke (https://github.com/fzenke/spytorch, License: http://creativecommons.org/licenses/by/4.0/)
 
 [^2]: Ordonez, F.J.; de Toledo, P.; Sanchis, A. Activity Recognition Using Hybrid Generative/Discriminative Models on Home Environments Using Binary Sensors. Sensors 2013, 13, 5460-5477.
 
 [^3]: Youngeun Kim and Priyadarshini Panda. Visual explanations from spiking neural networks using inter-spike intervals.Scientific Reports, 11(1), 2021.
+
+[^4]: Grégoire Montavon, W. Samek, and K. Müller. Methods for interpreting and understanding deep neural networks.Digit. Signal Process., 73:1–15, 2018.
+
+[^5]: Chih-Kuan Yeh, Cheng.Yu Hsieh, Arun Suggala, David I Inouye, and Pradeep K Ravikumar. On the (in)fidelity and sensitivity of explanations. In H. Wallach, H. Larochelle,A. Beygelzimer, F. d'Alché-Buc, E. Fox, and R. Garnett, editors,Advances in Neural Information Processing Systems, volume 32. Curran Associates, Inc., 2019.
