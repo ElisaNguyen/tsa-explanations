@@ -29,8 +29,8 @@ from ExplanationEvaluation import *
 # Load data
 dataset = load_obj('/local/work/enguyen/data/dataset_max.pkl')
 
-A_testset_t = load_obj('/local/work/enguyen/data/quantitative_test_t_A_final.pkl')
-B_testset_t = load_obj('/local/work/enguyen/data/quantitative_test_t_B_final.pkl')
+A_testset_t = load_obj('/local/work/enguyen/data/quantitative_test_t_A.pkl')
+B_testset_t = load_obj('/local/work/enguyen/data/quantitative_test_t_B.pkl')
 
 A_y_true = dataset['y_test_A'][:, A_testset_t]
 B_y_true = dataset['y_test_B'][:, B_testset_t]

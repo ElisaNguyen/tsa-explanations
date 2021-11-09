@@ -102,8 +102,8 @@ def flip_and_predict(nb_layers, X_data, y_data, model_explanations, testset_t):
 
 
 with torch.no_grad():
-    A_testset_t = load_obj('/local/work/enguyen/data/quantitative_test_t_A_final.pkl')
-    B_testset_t = load_obj('/local/work/enguyen/data/quantitative_test_t_B_final.pkl')
+    A_testset_t = load_obj('/local/work/enguyen/data/quantitative_test_t_A.pkl')
+    B_testset_t = load_obj('/local/work/enguyen/data/quantitative_test_t_B.pkl')
     A_y_true = dataset['y_test_A'][:, A_testset_t]
     B_y_true = dataset['y_test_B'][:, B_testset_t]
 

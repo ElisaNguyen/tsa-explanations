@@ -176,8 +176,8 @@ def get_thetas(max_attr):
 
 # concatenate A and B together for one network and find the max
 # then test 0, 25% and 75% of the [0, max] interval as thetas
-A_testset_t = load_obj('/local/work/enguyen/data/quantitative_test_t_A_final.pkl')
-B_testset_t = load_obj('/local/work/enguyen/data/quantitative_test_t_B_final.pkl')
+A_testset_t = load_obj('/local/work/enguyen/data/quantitative_test_t_A.pkl')
+B_testset_t = load_obj('/local/work/enguyen/data/quantitative_test_t_B.pkl')
 A_y_true = dataset['y_test_A'][:, A_testset_t]
 B_y_true = dataset['y_test_B'][:, B_testset_t]
 

@@ -79,6 +79,8 @@ The effect is the absence of the change that would have occurred if there was a 
 Hence, the NCS is the negative NCS of spikes. This way, there are also non-spikes considered in the explanation. This approach is called TSA-NS (non-spikes).
 
 The provided code enables the extraction of local explanations with either method.
+For the experiments, a subset of time stamps are defined to extract explanations for. 
+These are saved in `data/quantitative_test_t_A.pkl` and `data/quantitative_test_t_B.pkl` for the data of subjects A and B respectively.
 
 #### Instructions
 * 
