@@ -3,7 +3,7 @@
 This repository contains the Python 3 code for Temporal Spike Attribution (TSA), a method to extract 
 feature attribution explanations for temporally coded Spiking Neural Network from my Master Thesis at the University of Twente. 
 TSA is demonstrated on a time-series classification use case with SNN models built as recurrent networks in discrete 
-time. [^1]
+time.[^1]
 
 TSA generates class-wise feature attribution maps that can be overlayed with the spiking data to explain a 
 certain prediction of a SNN, based on model internal variables (i.e., spike trains, learned weights). The intensity corresponds
