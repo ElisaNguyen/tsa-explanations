@@ -7,6 +7,7 @@ from matplotlib.patches import Rectangle
 import matplotlib.gridspec as gridspec
 from matplotlib.colors import ListedColormap
 
+sys.path.insert(1, '../models')
 from CoreSNN import sparse_data_generator_from_spikes
 
 random.seed(123)

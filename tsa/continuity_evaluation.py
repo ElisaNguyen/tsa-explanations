@@ -164,9 +164,10 @@ def generate_perturbed_data(X_data, testset_t, savepath):
     return perturbed_data
 
 
-def compute_perturbed_explanation(nb_layers, X_perturbed, y_data, testset_t, path):
+def compute_perturbed_explanation(nb_layers, X_perturbed, y_data, testset_t, explanation_type, path):
     """
     Computes max sensitivity score as the maximum change in the explanation after perturbation.
+    :param explanation_type: string indicating explanation type (s, ns, sam)
     :param nb_layers: number of layers of the SNN model
     :param X_perturbed: perturbed input data
     :param y_data: original labels
@@ -198,7 +199,10 @@ def compute_perturbed_explanation(nb_layers, X_perturbed, y_data, testset_t, pat
         data_generator = sparse_data_generator_from_spikes(X_perturbed[t], y, 1, 14, max_time)
         X_p_spikes, _ = next(data_generator)
 
-        attribution_p = attribution_map_mm(model, X_p_spikes, layer_recs_p, probs_p[-1], max_time)
+        if explanation_type == 'sam':
+            attribution_p = ncs_attribution_map_mm(model, X_p_spikes, layer_recs_p, probs_p[-1], max_time, tsa_variant='s')
+        else:
+            attribution_p = attribution_map_mm(model, X_p_spikes, layer_recs_p, probs_p[-1], max_time, explanation_type)
         prediction_p = y_p_pred[0][-1]
         e_p = attribution_p[prediction_p]
         perturbed_explanations[t] = (e_p.detach(), prediction_p)
@@ -243,7 +247,7 @@ with torch.no_grad():
             print('Evaluating continuity for {} explanations of {}L-SNN...'.format(expl_type, nb_layer))
             # A
             perturbed_explanations = compute_perturbed_explanation(nb_layer, X_perturbed_A, dataset['y_test_A'],
-                                                                   A_testset_t,
+                                                                   A_testset_t, expl_type,
                                                                    '../evaluation/continuity/{}/perturbed_explanations_{}A.pkl'.format(
                                                                        expl_type, nb_layer))
             model_explanations = load_obj('../evaluation/{}/{}L_explanations_A.pkl'.format(expl_type, nb_layer))
@@ -251,7 +255,7 @@ with torch.no_grad():
             save_obj(max_sensitivity, '../evaluation/sensitivity/{}/max_sensitivity_{}A.pkl'.format(expl_type, nb_layer))
             # B
             perturbed_explanations = compute_perturbed_explanation(nb_layer, X_perturbed_B, dataset['y_test_B'],
-                                                                   B_testset_t,
+                                                                   B_testset_t, expl_type,
                                                                    '../evaluation/continuity/{}/perturbed_explanations_{}B.pkl'.format(
                                                                        expl_type, nb_layer
                                                                    ))

@@ -19,19 +19,18 @@ if torch.cuda.is_available():
 else:
     device = torch.device("cpu")
 
-print(device)
-
-sys.path.insert(1, '/local/work/enguyen')
-from CoreSNN import *
 from ExplanationCreation import *
 from ExplanationEvaluation import *
 
+sys.path.insert(1, '../models')
+from CoreSNN import *
+
+
 # Load data
-dataset = load_obj('/local/work/enguyen/data/dataset_max.pkl')
+dataset = load_obj('../data/dataset_max.pkl')
 
-A_testset_t = load_obj('/local/work/enguyen/data/quantitative_test_t_A.pkl')
-B_testset_t = load_obj('/local/work/enguyen/data/quantitative_test_t_B.pkl')
-
+A_testset_t = load_obj('../data/quantitative_test_t_A.pkl')
+B_testset_t = load_obj('../data/quantitative_test_t_B.pkl')
 A_y_true = dataset['y_test_A'][:, A_testset_t]
 B_y_true = dataset['y_test_B'][:, B_testset_t]
 
@@ -44,10 +43,10 @@ so that it does not have to be recomputed for each metric
 """
 
 
-def extract_information_for_quantitative_analysis(testset_t, nb_layers, X_data, y_data, variant, filename):
+def extract_explanations_for_quantitative_analysis(testset_t, nb_layers, X_data, y_data, explanation_type, filename):
     """
     Helper function to extract the X_spikes, explanations (attribution maps) and the prediction for a model
-    :param variant: TSA variant (string, 's' or 'ns')
+    :param explanation_type: string incidating the type of explanation
     :param testset_t: the timestamps to be run and extract explanations for
     :param nb_layers: amount of layers of the model
     :param X_data: data in the dictionary times, units form
@@ -77,81 +76,24 @@ def extract_information_for_quantitative_analysis(testset_t, nb_layers, X_data, 
                                                            model.max_time, shuffle=False)
         X_spikes, _ = next(data_generator)
 
-        attribution = attribution_map_mm(model, X_spikes, layer_recs, probs[-1], t - start_t, variant)
+        if explanation_type == 'sam':
+            attribution = ncs_attribution_map_mm(model, X_spikes, layer_recs, probs[-1], t - start_t, tsa_variant='s')
+        else:
+            attribution = attribution_map_mm(model, X_spikes, layer_recs, probs[-1], t - start_t, explanation_type)
         prediction = y_pred[0][-1]
         e = attribution[prediction]
 
         testset_explanations[t] = (e.detach(), prediction)
-        save_obj(testset_explanations, '/local/work/enguyen/evaluation/' + filename + '.pkl')
+        save_obj(testset_explanations, '../evaluation/' + filename + '.pkl')
 
 
-def assign_random_attribution(X_spikes, min_attr, max_attr):
-    random_e = torch.zeros(X_spikes.shape).to(device)
-    random_e[X_spikes != 0] = torch.Tensor(np.random.uniform(min_attr, max_attr, X_spikes[X_spikes != 0].shape)).to(
-        device)
-    return X_spikes
+expl_types = ['s', 'ns', 'sam']
 
-
-def generate_baseline_data(testset_t, X_data, y_data, path):
-    baseline_explanations = {}
-    max_attr = -50
-    min_attr = 50
-    for filename in os.listdir('/local/work/enguyen/evaluation/tsa-s'):
-        f = os.path.join('/local/work/enguyen/evaluation/tsa-s', filename)
-        if os.path.isfile(f):
-            max_attr = max(max_attr, get_max_attr(f))
-            min_attr = min(min_attr, get_min_attr(f))
-    for filename in os.listdir('/local/work/enguyen/evaluation/tsa-ns'):
-        f = os.path.join('/local/work/enguyen/evaluation/tsa-ns', filename)
-        if os.path.isfile(f):
-            max_attr = max(max_attr, get_max_attr(f))
-            min_attr = min(min_attr, get_min_attr(f))
-
-    for t in tqdm(testset_t):
-        # get the relevant part of the dataset, this is done for performance reasons
-        start_t = t - 3600 if t >= 3600 else 0
-        X = {'times': X_data['times'][:, np.where((X_data['times'] >= start_t) & (X_data['times'] < t))[1]] - start_t,
-             'units': X_data['units'][:, np.where((X_data['times'] >= start_t) & (X_data['times'] < t))[1]]}
-        y = y_data[:, start_t:t]
-        max_time = t - start_t
-
-        data_generator = sparse_data_generator_from_spikes(X, y, len(y), 14, max_time, shuffle=False)
-        X_spikes, _ = next(data_generator)
-
-        baseline_explanations[t] = (
-            assign_random_attribution(X_spikes.to_dense()[0].t(), min_attr, max_attr).detach(), y[0][-1])
-        save_obj(baseline_explanations, path)
-
-
-# TSA-S explanations
-extract_information_for_quantitative_analysis(A_testset_t, 1, dataset['X_test_A'], dataset['y_test_A'], 's',
-                                              'tsa-s/onelayer_explanations_A')
-extract_information_for_quantitative_analysis(B_testset_t, 1, dataset['X_test_B'], dataset['y_test_B'], 's',
-                                              'tsa-s/onelayer_explanations_B')
-extract_information_for_quantitative_analysis(A_testset_t, 2, dataset['X_test_A'], dataset['y_test_A'], 's',
-                                              'tsa-s/twolayer_explanations_A')
-extract_information_for_quantitative_analysis(B_testset_t, 2, dataset['X_test_B'], dataset['y_test_B'], 's',
-                                              'tsa-s/twolayer_explanations_B')
-extract_information_for_quantitative_analysis(A_testset_t, 3, dataset['X_test_A'], dataset['y_test_A'], 's',
-                                              'tsa-s/threelayer_explanations_A')
-extract_information_for_quantitative_analysis(B_testset_t, 3, dataset['X_test_B'], dataset['y_test_B'], 's',
-                                              'tsa-s/threelayer_explanations_B')
-
-# TSA-NS explanations
-extract_information_for_quantitative_analysis(A_testset_t, 1, dataset['X_test_A'], dataset['y_test_A'], 'ns',
-                                              'tsa-ns/onelayer_explanations_A')
-extract_information_for_quantitative_analysis(B_testset_t, 1, dataset['X_test_B'], dataset['y_test_B'], 'ns',
-                                              'tsa-ns/onelayer_explanations_B')
-extract_information_for_quantitative_analysis(A_testset_t, 2, dataset['X_test_A'], dataset['y_test_A'], 'ns',
-                                              'tsa-ns/twolayer_explanations_A')
-extract_information_for_quantitative_analysis(B_testset_t, 2, dataset['X_test_B'], dataset['y_test_B'], 'ns',
-                                              'tsa-ns/twolayer_explanations_B')
-extract_information_for_quantitative_analysis(A_testset_t, 3, dataset['X_test_A'], dataset['y_test_A'], 'ns',
-                                              'tsa-ns/threelayer_explanations_A')
-extract_information_for_quantitative_analysis(B_testset_t, 3, dataset['X_test_B'], dataset['y_test_B'], 'ns',
-                                              'tsa-ns/threelayer_explanations_B')
-
-generate_baseline_data(A_testset_t, dataset['X_test_A'], dataset['y_test_A'],
-                       '/local/work/enguyen/evaluation/baseline_explanations_A.pkl')
-generate_baseline_data(B_testset_t, dataset['X_test_B'], dataset['y_test_B'],
-                       '/local/work/enguyen/evaluation/baseline_explanations_B.pkl')
+for nb_layer in range(3):
+    for expl_type in expl_types:
+        # A
+        extract_explanations_for_quantitative_analysis(A_testset_t, nb_layer, dataset['X_test_A'], dataset['y_test_A'],
+                                                       expl_type, '{}/{}L_explanations_A'.format(expl_type, nb_layer))
+        # B
+        extract_explanations_for_quantitative_analysis(B_testset_t, nb_layer, dataset['X_test_B'], dataset['y_test_B'],
+                                                       expl_type, '{}/{}L_explanations_B'.format(expl_type, nb_layer))
