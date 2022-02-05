@@ -258,4 +258,4 @@ with torch.no_grad():
             model_explanations = load_obj('../evaluation/{}/{}L_explanations_B.pkl'.format(expl_type, nb_layer))
             max_sensitivity = max_sensitivity_score(B_testset_t, model_explanations, perturbed_explanations)
             save_obj(max_sensitivity, '../evaluation/continuity/{}/max_sensitivity_{}B.pkl'.format(expl_type, nb_layer))
-        print('Continuity evaluation of {}L-SNN is done!'.format(nb_layer))
+        print('Continuity evaluation of SNN-{}L is done!'.format(nb_layer))

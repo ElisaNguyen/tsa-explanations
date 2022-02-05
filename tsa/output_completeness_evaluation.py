@@ -28,41 +28,44 @@ dtype = torch.float
 
 # Check whether a GPU is available
 if torch.cuda.is_available():
-    device = torch.device("cuda")     
+    device = torch.device("cuda")
 else:
     device = torch.device("cpu")
-print(device)
 
-sys.path.insert(1, '/local/work/enguyen')
-from CoreSNN import *
-from ExplanationCreation import *
 from ExplanationEvaluation import *
 
-# Load data
+sys.path.insert(1, '../models')
+from CoreSNN import *
+
+# Load data & fixed variables
 dataset = load_obj('/local/work/enguyen/data/dataset_max.pkl')
 nb_inputs = 14
 nb_outputs = 11
 
-"""# Attribution sufficiency
+"""# Output-completeness
 
-Attribution sufficiency describes the sufficiency of the as highly attributing identified features/part of the data for the model prediction. It is measured in the drop of model performance on the dataset when shuffling the unimportant features.
+Output-completeness describes the sufficiency of the as highly attributing identified features/
+part of the data for the model prediction. 
+It is measured in the drop of model performance on the dataset when shuffling the unimportant features.
 
 Definition here: attribution values > 0 of the feature segments are important.
 """
 
-def identify_high_attribution(ranked_fs, theta):
+
+def identify_high_attribution(ranked_fs, epsilon):
     """
-    filters the feature segments to those that are contributing more than theta
+    filters the feature segments to those that are contributing more than epsilon
     :param ranked_fs: list of feature segments with their mean score
-    :param theta: threshold for high attribution
+    :param epsilon: threshold for high attribution
+    :return: feature segments that are >epsilon and the sensor dimensions that belong to them
     """
     high_attribution_segments = []
     attributing_sensors = []
     for fs in ranked_fs:
-        if np.abs(fs[0])>theta:
+        if np.abs(fs[0]) > epsilon:
             high_attribution_segments.append(fs)
             if fs[1][0] not in attributing_sensors:
-                attributing_sensors.append(fs[1][0]) 
+                attributing_sensors.append(fs[1][0])
     return high_attribution_segments, attributing_sensors
 
 
@@ -79,7 +82,7 @@ def get_time_segments(sensor, segments):
         if segment[0] == sensor:
             starts.append(segment[1])
             ends.append(segment[2])
-    starts_sorted = [start for start,_ in sorted(zip(starts, ends))]
+    starts_sorted = [start for start, _ in sorted(zip(starts, ends))]
     ends_sorted = [end for _, end in sorted(zip(starts, ends))]
     return starts_sorted, ends_sorted
 
@@ -109,10 +112,10 @@ def perturb_background(attributing_sensors, X_spikes, segments):
             background_data = background_data[shuffle_idx]
             perturbed_data = [background_data[:starts[0]]]
             background_data = background_data[starts[0]:]
-            for i in range(len(starts)-1):
+            for i in range(len(starts) - 1):
                 perturbed_data.append(X_spikes_perturbed[sensor][starts[i]:ends[i]])
-                perturbed_data.append(background_data[:(starts[i+1]-ends[i])])
-                background_data = background_data[(starts[i+1]-ends[i]):]
+                perturbed_data.append(background_data[:(starts[i + 1] - ends[i])])
+                background_data = background_data[(starts[i + 1] - ends[i]):]
             perturbed_data.append(X_spikes_perturbed[sensor][starts[-1]:ends[-1]])
             perturbed_data.append(background_data)
             perturbed_data = torch.cat(perturbed_data)
@@ -125,12 +128,12 @@ def perturb_background(attributing_sensors, X_spikes, segments):
     return X_spikes_perturbed.to_sparse()
 
 
-def attribution_sufficiency_score(nb_layers, X_data, y_data, model_explanations, theta, testset_t, y_true):
+def output_completeness_score(nb_layers, X_data, y_data, model_explanations, epsilon, testset_t, y_true):
     """
     Computes the attribution sufficiency score as the balanced accuracy of the model's predictions on data with perturbed background and the ground truth
     :param nb_layers: number of layers of the SNN
     :param model_explanations: extracted explanations and X_spikes dictionary
-    :param theta: threshold for high attribution
+    :param epsilon: threshold for high attribution
     :param testset_t: timestamps to test
     :returns: attribution sufficiency score and y_pred_bgperturbed
     """
@@ -138,7 +141,7 @@ def attribution_sufficiency_score(nb_layers, X_data, y_data, model_explanations,
     y_preds = []
     model = initiate_model(nb_layers, 1)
     for t in tqdm(testset_t):
-        start_t = t-3600 if t>=3600 else 0
+        start_t = t - 3600 if t >= 3600 else 0
         model.nb_steps = t - start_t
         model.max_time = t - start_t
 
@@ -146,153 +149,69 @@ def attribution_sufficiency_score(nb_layers, X_data, y_data, model_explanations,
         y_preds.append(prediction)
 
         # get the relevant part of the dataset, this is done for performance reasons
-        X = {'times': X_data['times'][:, np.where((X_data['times']>=start_t) & (X_data['times']<t))[1]]-start_t, 
-             'units': X_data['units'][:, np.where((X_data['times']>=start_t) & (X_data['times']<t))[1]]}
+        X = {'times': X_data['times'][:, np.where((X_data['times'] >= start_t) & (X_data['times'] < t))[1]] - start_t,
+             'units': X_data['units'][:, np.where((X_data['times'] >= start_t) & (X_data['times'] < t))[1]]}
         y = y_data[:, start_t:t]
-        data_generator = sparse_data_generator_from_spikes(X, y, len(y), model.nb_steps, model.layer_sizes[0], model.max_time, shuffle=False)
+        data_generator = sparse_data_generator_from_spikes(X, y, len(y), model.nb_steps, model.layer_sizes[0],
+                                                           model.max_time, shuffle=False)
         X_spikes, _ = next(data_generator)
 
         fs = segment_features(e)
         fs_scores = rank_segments(e, fs)
-        high_attribution_segments, attributing_sensors = identify_high_attribution(fs_scores, theta)
+        high_attribution_segments, attributing_sensors = identify_high_attribution(fs_scores, epsilon)
         X_spikes_perturbed = perturb_background(attributing_sensors, X_spikes, high_attribution_segments)
 
         y_pred_perturbed_here, _, _ = predict_from_spikes(model, X_spikes_perturbed)
         y_pred_bgperturbed.append(y_pred_perturbed_here[0][-1])
-    # perf_perturbedbg = balanced_accuracy_score(y_true[0], y_pred_bgperturbed)
-    # score = balanced_accuracy_score(y_true[0], y_preds) - perf_perturbedbg
-    # return score, y_pred_bgperturbed
     score = metrics.balanced_accuracy_score(y_preds, y_pred_bgperturbed)
     return score, y_preds, y_pred_bgperturbed
 
 
-def get_thetas(max_attr):
+def get_epsilons(max_attr):
     """
-    Given all explanations of one SNN model across both data subjects, find the thetas at 25, 50 and 75% of the attribution range of positive attributions 
+    Given all explanations of one SNN model across both data subjects, find the epsilons at 25,
+    50 and 75% of the attribution range of positive attributions
+    :param max_attr: maximum absolute attribution value
+    :return:
     """
-    thetas = [(0), (0.25*max_attr), (0.5*max_attr), (0.75*max_attr)]
-    return thetas
-    
+    epsilons = [(0), (0.25 * max_attr), (0.5 * max_attr), (0.75 * max_attr)]
+    return epsilons
+
 
 # concatenate A and B together for one network and find the max
-# then test 0, 25% and 75% of the [0, max] interval as thetas
-A_testset_t = load_obj('/local/work/enguyen/data/quantitative_test_t_A.pkl')
-B_testset_t = load_obj('/local/work/enguyen/data/quantitative_test_t_B.pkl')
+# then test 0, 25% and 75% of the [0, max] interval as epsilons
+A_testset_t = load_obj('../data/quantitative_test_t_A.pkl')
+B_testset_t = load_obj('../data/quantitative_test_t_B.pkl')
 A_y_true = dataset['y_test_A'][:, A_testset_t]
 B_y_true = dataset['y_test_B'][:, B_testset_t]
+expl_types = ['s', 'ns', 'sam']
 
 with torch.no_grad():
-    # get thetas
-    max_attr = -50
-    min_attr = 50
-    for filename in os.listdir('/local/work/enguyen/evaluation/tsa-s'):
-        f = os.path.join('/local/work/enguyen/evaluation/tsa-s', filename)
-        if os.path.isfile(f):
-            max_attr = max(max_attr, get_max_attr(f))
-            min_attr = min(min_attr, get_min_attr(f))
-    for filename in os.listdir('/local/work/enguyen/evaluation/tsa-ns'):
-        f = os.path.join('/local/work/enguyen/evaluation/tsa-ns', filename)
-        if os.path.isfile(f):
-            max_attr = max(max_attr, get_max_attr(f))
-            min_attr = min(min_attr, get_min_attr(f))
-    
-    thetas = get_thetas(max(max_attr, np.abs(min_attr)))
+    for expl_type in expl_types:
+        # get epsilons
+        max_attr = -50
+        min_attr = 50
+        for filename in os.listdir('../evaluation/{}'.format(expl_type)):
+            f = '../evaluation/{}/{}'.format(expl_type, filename)
+            if os.path.isfile(f):
+                max_attr = max(max_attr, get_max_attr(f))
+                min_attr = min(min_attr, get_min_attr(f))
 
-    # TSA-S
-    # OneLayerSNN
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-s/onelayer_explanations_A.pkl')
-    for i, theta in enumerate(thetas):
-        sufficiency_score = attribution_sufficiency_score(1, dataset['X_test_A'], dataset['y_test_A'], model_explanations, theta, A_testset_t, A_y_true)
-        save_obj(sufficiency_score, '/local/work/enguyen/evaluation/sufficiency/tsa-s/onelayer_sufficiency_A_theta'+str(i)+'.pkl')
-    
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-s/onelayer_explanations_B.pkl')
-    for i, theta in enumerate(thetas):
-        sufficiency_score = attribution_sufficiency_score(1, dataset['X_test_B'], dataset['y_test_B'], model_explanations, theta, B_testset_t, B_y_true)
-        save_obj(sufficiency_score, '/local/work/enguyen/evaluation/sufficiency/tsa-s/onelayer_sufficiency_B_theta'+str(i)+'.pkl')
-    
-    # TwoLayerSNN
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-s/twolayer_explanations_A.pkl')
-    for i, theta in enumerate(thetas):
-        sufficiency_score = attribution_sufficiency_score(2, dataset['X_test_A'], dataset['y_test_A'], model_explanations, theta, A_testset_t, A_y_true)
-        save_obj(sufficiency_score, '/local/work/enguyen/evaluation/sufficiency/tsa-s/twolayer_sufficiency_A_theta'+str(i)+'.pkl')
-        
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-s/twolayer_explanations_B.pkl')
-    for i, theta in enumerate(thetas):
-        sufficiency_score = attribution_sufficiency_score(2, dataset['X_test_B'], dataset['y_test_B'], model_explanations, theta, B_testset_t, B_y_true)
-        save_obj(sufficiency_score, '/local/work/enguyen/evaluation/sufficiency/tsa-s/twolayer_sufficiency_B_theta'+str(i)+'.pkl')
-    
-    # ThreeLayerSNN
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-s/threelayer_explanations_A.pkl')
-    for i, theta in enumerate(thetas):
-        sufficiency_score = attribution_sufficiency_score(3, dataset['X_test_A'], dataset['y_test_A'], model_explanations, theta, A_testset_t, A_y_true)
-        save_obj(sufficiency_score, '/local/work/enguyen/evaluation/sufficiency/tsa-s/threelayer_sufficiency_A_theta'+str(i)+'.pkl')
-    
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-s/threelayer_explanations_B.pkl')
-    for i, theta in enumerate(thetas):
-        sufficiency_score = attribution_sufficiency_score(3, dataset['X_test_B'], dataset['y_test_B'], model_explanations, theta, B_testset_t, B_y_true)
-        save_obj(sufficiency_score, '/local/work/enguyen/evaluation/sufficiency/tsa-s/threelayer_sufficiency_B_theta'+str(i)+'.pkl')
+        epsilons = get_epsilons(max(max_attr, np.abs(min_attr)))
 
-    # TSA-NS
-    # OneLayerSNN
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-ns/onelayer_explanations_A.pkl')
-    for i, theta in enumerate(thetas):
-        sufficiency_score = attribution_sufficiency_score(1, dataset['X_test_A'], dataset['y_test_A'],
-                                                          model_explanations, theta, A_testset_t, A_y_true)
-        save_obj(sufficiency_score,
-                 '/local/work/enguyen/evaluation/sufficiency/tsa-ns/onelayer_sufficiency_A_theta' + str(i) + '.pkl')
-
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-ns/onelayer_explanations_B.pkl')
-    for i, theta in enumerate(thetas):
-        sufficiency_score = attribution_sufficiency_score(1, dataset['X_test_B'], dataset['y_test_B'],
-                                                          model_explanations, theta, B_testset_t, B_y_true)
-        save_obj(sufficiency_score,
-                 '/local/work/enguyen/evaluation/sufficiency/tsa-ns/onelayer_sufficiency_B_theta' + str(i) + '.pkl')
-
-    # TwoLayerSNN
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-ns/twolayer_explanations_A.pkl')
-    for i, theta in enumerate(thetas):
-        sufficiency_score = attribution_sufficiency_score(2, dataset['X_test_A'], dataset['y_test_A'],
-                                                          model_explanations, theta, A_testset_t, A_y_true)
-        save_obj(sufficiency_score,
-                 '/local/work/enguyen/evaluation/sufficiency/tsa-ns/twolayer_sufficiency_A_theta' + str(i) + '.pkl')
-
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-ns/twolayer_explanations_B.pkl')
-    for i, theta in enumerate(thetas):
-        sufficiency_score = attribution_sufficiency_score(2, dataset['X_test_B'], dataset['y_test_B'],
-                                                          model_explanations, theta, B_testset_t, B_y_true)
-        save_obj(sufficiency_score,
-                 '/local/work/enguyen/evaluation/sufficiency/tsa-ns/twolayer_sufficiency_B_theta' + str(i) + '.pkl')
-
-    # ThreeLayerSNN
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-ns/threelayer_explanations_A.pkl')
-    for i, theta in enumerate(thetas):
-        sufficiency_score = attribution_sufficiency_score(3, dataset['X_test_A'], dataset['y_test_A'],
-                                                          model_explanations, theta, A_testset_t, A_y_true)
-        save_obj(sufficiency_score,
-                 '/local/work/enguyen/evaluation/sufficiency/tsa-ns/threelayer_sufficiency_A_theta' + str(i) + '.pkl')
-
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-ns/threelayer_explanations_B.pkl')
-    for i, theta in enumerate(thetas):
-        sufficiency_score = attribution_sufficiency_score(3, dataset['X_test_B'], dataset['y_test_B'],
-                                                          model_explanations, theta, B_testset_t, B_y_true)
-        save_obj(sufficiency_score,
-                 '/local/work/enguyen/evaluation/sufficiency/tsa-ns/threelayer_sufficiency_B_theta' + str(i) + '.pkl')
-        
-    # Baselines
-    baseline_explanations = load_obj('/local/work/enguyen/evaluation/baseline_explanations_A.pkl')
-    for i, theta in enumerate(thetas):
-        sufficiency_score = attribution_sufficiency_score(1, dataset['X_test_A'], dataset['y_test_A'], baseline_explanations, theta, A_testset_t, A_y_true)
-        save_obj(sufficiency_score, '/local/work/enguyen/evaluation/sufficiency/baseline_onelayer_sufficiency_A_theta'+str(i)+'.pkl')
-        sufficiency_score = attribution_sufficiency_score(2, dataset['X_test_A'], dataset['y_test_A'], baseline_explanations, theta, A_testset_t, A_y_true)
-        save_obj(sufficiency_score, '/local/work/enguyen/evaluation/sufficiency/baseline_twolayer_sufficiency_A_theta'+str(i)+'.pkl')
-        sufficiency_score = attribution_sufficiency_score(3, dataset['X_test_A'], dataset['y_test_A'], baseline_explanations, theta, A_testset_t, A_y_true)
-        save_obj(sufficiency_score, '/local/work/enguyen/evaluation/sufficiency/baseline_threelayer_sufficiency_A_theta'+str(i)+'.pkl')
-        
-    baseline_explanations = load_obj('/local/work/enguyen/evaluation/baseline_explanations_B.pkl')
-    for i, theta in enumerate(thetas):
-        sufficiency_score = attribution_sufficiency_score(1, dataset['X_test_B'], dataset['y_test_B'], baseline_explanations, theta, B_testset_t, B_y_true)
-        save_obj(sufficiency_score, '/local/work/enguyen/evaluation/sufficiency/baseline_onelayer_sufficiency_B_theta'+str(i)+'.pkl')
-        sufficiency_score = attribution_sufficiency_score(2, dataset['X_test_B'], dataset['y_test_B'], baseline_explanations, theta, B_testset_t, B_y_true)
-        save_obj(sufficiency_score, '/local/work/enguyen/evaluation/sufficiency/baseline_twolayer_sufficiency_B_theta'+str(i)+'.pkl')
-        sufficiency_score = attribution_sufficiency_score(3, dataset['X_test_B'], dataset['y_test_B'], baseline_explanations, theta, B_testset_t, B_y_true)
-        save_obj(sufficiency_score, '/local/work/enguyen/evaluation/sufficiency/baseline_threelayer_sufficiency_B_theta'+str(i)+'.pkl')
+        for nb_layer in range(3):
+            # A
+            model_explanations = load_obj('../evaluation/{}/{}L_explanations_A.pkl'.format(expl_type, nb_layer))
+            for i, epsilon in enumerate(epsilons):
+                oc_score = output_completeness_score(nb_layer, dataset['X_test_A'], dataset['y_test_A'],
+                                                     model_explanations, epsilon, A_testset_t, A_y_true)
+                save_obj(oc_score,
+                         '../evaluation/output_completeness/{}/{}L_oc_A_epsilon{}.pkl'.format(expl_type, nb_layer, i))
+            # B
+            model_explanations = load_obj('../evaluation/{}/{}L_explanations_B.pkl'.format(expl_type, nb_layer))
+            for i, epsilon in enumerate(epsilons):
+                oc_score = output_completeness_score(nb_layer, dataset['X_test_B'], dataset['y_test_B'],
+                                                     model_explanations, epsilon, B_testset_t, B_y_true)
+                save_obj(oc_score,
+                         '../evaluation/sufficiency/{}/{}L_sufficiency_B_epsilon{}.pkl'.format(expl_type, nb_layer, i))
+            print('Evaluation of output-completeness for {} explanations of SNN-{}L done!'.format(expl_type, nb_layer))

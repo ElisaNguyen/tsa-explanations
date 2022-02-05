@@ -21,7 +21,6 @@ else:
     device = torch.device("cpu")
 
 from ExplanationEvaluation import *
-
 sys.path.insert(1, '../models')
 from CoreSNN import *
 
@@ -128,4 +127,4 @@ with torch.no_grad():
                                                                 B_testset_t)
             save_obj(y_preds_perturbed,
                      '../evaluation/faithfulness/{}/y_preds_perturbed_{}L_B.pkl'.format(expl_type, nb_layer))
-        print('Correctness evaluation of {}L-SNN is done!'.format(nb_layer))
+        print('Correctness evaluation of SNN-{}L is done!'.format(nb_layer))
