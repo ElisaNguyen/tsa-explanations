@@ -228,7 +228,7 @@ A_testset_t = load_obj('../data/quantitative_test_t_A.pkl')
 B_testset_t = load_obj('../data/quantitative_test_t_B.pkl')
 A_y_true = dataset['y_test_A'][:, A_testset_t]
 B_y_true = dataset['y_test_B'][:, B_testset_t]
-expl_types = ['s', 'ns', 'ncs']
+expl_types = ['s', 'ns', 'sam']
 
 with torch.no_grad():
     # generate the perturbed data

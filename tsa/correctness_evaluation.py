@@ -20,29 +20,31 @@ if torch.cuda.is_available():
 else:
     device = torch.device("cpu")
 
-print(device)
-
-sys.path.insert(1, '/local/work/enguyen')
-from CoreSNN import *
-from ExplanationCreation import *
 from ExplanationEvaluation import *
 
-# Load data
-dataset = load_obj('/local/work/enguyen/data/dataset_max.pkl')
+sys.path.insert(1, '../models')
+from CoreSNN import *
 
-# Fixed parameters, nbsteps and max time correspond to the set duration (for testing, first we consider the validation set and not the test set)
+# Load data
+dataset = load_obj('../data/dataset_max.pkl')
+
+# Fixed parameters
 nb_inputs = 14
 nb_outputs = 11
 
-"""# Faithfulness
+"""# Correctness
 
-Faithfulness is measured in explanation selectivity. This is the average AUC of the graphs resulting from flippinig the most important feature segments of the explanation.
+Correctness is measured in explanation selectivity. 
+This is the average AUC of the graphs resulting from flipping the most important feature segments of the explanation.
 """
 
 
 def flip_segment(X_spikes, segment):
     """
     Flips the values of a segment in X_spikes format
+    :param X_spikes: spiking input data from spike generator
+    :param segment: segment in X_spikes to be flipped
+    :return: spiking data with flipped segment
     """
     _, (d, t_start, t_end) = segment
     X_perturbed = X_spikes.to_dense()
@@ -54,11 +56,12 @@ def flip_segment(X_spikes, segment):
 def flip_and_predict(nb_layers, X_data, y_data, model_explanations, testset_t):
     """
     Function to get the predictions of the model with nb_layers on X_data when flipping the feature segments
-    :param testset_t:
-    :param model_explanations:
-    :param y_data:
-    :param X_data:
-    :param nb_layers: number of layers
+    :param nb_layers: number of layers of the SNN model
+    :param X_data: input data
+    :param y_data: labels
+    :param model_explanations: extracted explanations for X_data
+    :param testset_t: timestamps that are part of the testset
+    :return: model predictions for perturbed data and original predictions
     """
     # define the model for the specific duration (performs same though because the weights are the same)
     model = initiate_model(nb_layers, 1)
@@ -101,116 +104,28 @@ def flip_and_predict(nb_layers, X_data, y_data, model_explanations, testset_t):
     return y_preds_flipped, y_preds
 
 
+expl_types = ['s', 'ns', 'sam']
 with torch.no_grad():
-    A_testset_t = load_obj('/local/work/enguyen/data/quantitative_test_t_A.pkl')
-    B_testset_t = load_obj('/local/work/enguyen/data/quantitative_test_t_B.pkl')
+    A_testset_t = load_obj('../data/quantitative_test_t_A.pkl')
+    B_testset_t = load_obj('../data/quantitative_test_t_B.pkl')
     A_y_true = dataset['y_test_A'][:, A_testset_t]
     B_y_true = dataset['y_test_B'][:, B_testset_t]
 
-    #### TSA-S
-    # OneLayer A
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-s/onelayer_explanations_A.pkl')
-    y_preds_perturbed, y_preds_clean = flip_and_predict(1, dataset['X_test_A'], dataset['y_test_A'], model_explanations,
-                                                        A_testset_t)
-    save_obj(y_preds_perturbed, '/local/work/enguyen/evaluation/faithfulness/tsa-s/y_preds_perturbed_onelayer_A.pkl')
-
-    # OneLayer B
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-s/onelayer_explanations_B.pkl')
-    y_preds_perturbed, y_preds_clean = flip_and_predict(1, dataset['X_test_B'], dataset['y_test_B'], model_explanations,
-                                                        B_testset_t)
-    save_obj(y_preds_perturbed, '/local/work/enguyen/evaluation/faithfulness/tsa-s/y_preds_perturbed_onelayer_B.pkl')
-
-    # TwoLayer A
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-s/twolayer_explanations_A.pkl')
-    y_preds_perturbed, y_preds_clean = flip_and_predict(2, dataset['X_test_A'], dataset['y_test_A'], model_explanations,
-                                                        A_testset_t)
-    save_obj(y_preds_perturbed, '/local/work/enguyen/evaluation/faithfulness/tsa-s/y_preds_perturbed_twolayer_A.pkl')
-
-    # TwoLayer B
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-s/twolayer_explanations_B.pkl')
-    y_preds_perturbed, y_preds_clean = flip_and_predict(2, dataset['X_test_B'], dataset['y_test_B'], model_explanations,
-                                                        B_testset_t)
-    save_obj(y_preds_perturbed, '/local/work/enguyen/evaluation/faithfulness/tsa-s/y_preds_perturbed_twolayer_B.pkl')
-
-    # ThreeLayer A
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-s/threelayer_explanations_A.pkl')
-    y_preds_perturbed, y_preds_clean = flip_and_predict(3, dataset['X_test_A'], dataset['y_test_A'], model_explanations,
-                                                        A_testset_t)
-    save_obj(y_preds_perturbed, '/local/work/enguyen/evaluation/faithfulness/tsa-s/y_preds_perturbed_threelayer_A.pkl')
-
-    # ThreeLayer B
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-s/threelayer_explanations_B.pkl')
-    y_preds_perturbed, y_preds_clean = flip_and_predict(3, dataset['X_test_B'], dataset['y_test_B'], model_explanations,
-                                                        B_testset_t)
-    save_obj(y_preds_perturbed, '/local/work/enguyen/evaluation/faithfulness/tsa-s/y_preds_perturbed_threelayer_B.pkl')
-
-    #### TSA-NS
-    # OneLayer A
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-ns/onelayer_explanations_A.pkl')
-    y_preds_perturbed, y_preds_clean = flip_and_predict(1, dataset['X_test_A'], dataset['y_test_A'], model_explanations,
-                                                        A_testset_t)
-    save_obj(y_preds_perturbed, '/local/work/enguyen/evaluation/faithfulness/tsa-ns/y_preds_perturbed_onelayer_A.pkl')
-
-    # OneLayer B
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-ns/onelayer_explanations_B.pkl')
-    y_preds_perturbed, y_preds_clean = flip_and_predict(1, dataset['X_test_B'], dataset['y_test_B'], model_explanations,
-                                                        B_testset_t)
-    save_obj(y_preds_perturbed, '/local/work/enguyen/evaluation/faithfulness/tsa-ns/y_preds_perturbed_onelayer_B.pkl')
-
-    # TwoLayer A
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-ns/twolayer_explanations_A.pkl')
-    y_preds_perturbed, y_preds_clean = flip_and_predict(2, dataset['X_test_A'], dataset['y_test_A'], model_explanations,
-                                                        A_testset_t)
-    save_obj(y_preds_perturbed, '/local/work/enguyen/evaluation/faithfulness/tsa-ns/y_preds_perturbed_twolayer_A.pkl')
-
-    # TwoLayer B
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-ns/twolayer_explanations_B.pkl')
-    y_preds_perturbed, y_preds_clean = flip_and_predict(2, dataset['X_test_B'], dataset['y_test_B'], model_explanations,
-                                                        B_testset_t)
-    save_obj(y_preds_perturbed, '/local/work/enguyen/evaluation/faithfulness/tsa-ns/y_preds_perturbed_twolayer_B.pkl')
-
-    # ThreeLayer A
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-ns/threelayer_explanations_A.pkl')
-    y_preds_perturbed, y_preds_clean = flip_and_predict(3, dataset['X_test_A'], dataset['y_test_A'], model_explanations,
-                                                        A_testset_t)
-    save_obj(y_preds_perturbed, '/local/work/enguyen/evaluation/faithfulness/tsa-ns/y_preds_perturbed_threelayer_A.pkl')
-
-    # ThreeLayer B
-    model_explanations = load_obj('/local/work/enguyen/evaluation/tsa-ns/threelayer_explanations_B.pkl')
-    y_preds_perturbed, y_preds_clean = flip_and_predict(3, dataset['X_test_B'], dataset['y_test_B'], model_explanations,
-                                                        B_testset_t)
-    save_obj(y_preds_perturbed, '/local/work/enguyen/evaluation/faithfulness/tsa-ns/y_preds_perturbed_threelayer_B.pkl')
-
-    ##### Baselines
-
-    model_explanations = load_obj('/local/work/enguyen/evaluation/baseline_explanations_A.pkl')
-    y_preds_perturbed, y_preds_clean = flip_and_predict(1, dataset['X_test_A'], dataset['y_test_A'], model_explanations,
-                                                        A_testset_t)
-    save_obj(y_preds_perturbed, '/local/work/enguyen/evaluation/faithfulness/baseline_y_preds_perturbed_onelayer_A.pkl')
-
-    model_explanations = load_obj('/local/work/enguyen/evaluation/baseline_explanations_B.pkl')
-    y_preds_perturbed, y_preds_clean = flip_and_predict(1, dataset['X_test_B'], dataset['y_test_B'], model_explanations,
-                                                        B_testset_t)
-    save_obj(y_preds_perturbed, '/local/work/enguyen/evaluation/faithfulness/baseline_y_preds_perturbed_onelayer_B.pkl')
-
-    model_explanations = load_obj('/local/work/enguyen/evaluation/baseline_explanations_A.pkl')
-    y_preds_perturbed, y_preds_clean = flip_and_predict(2, dataset['X_test_A'], dataset['y_test_A'], model_explanations,
-                                                        A_testset_t)
-    save_obj(y_preds_perturbed, '/local/work/enguyen/evaluation/faithfulness/baseline_y_preds_perturbed_twolayer_A.pkl')
-
-    model_explanations = load_obj('/local/work/enguyen/evaluation/baseline_explanations_B.pkl')
-    y_preds_perturbed, y_preds_clean = flip_and_predict(2, dataset['X_test_B'], dataset['y_test_B'], model_explanations,
-                                                        B_testset_t)
-    save_obj(y_preds_perturbed, '/local/work/enguyen/evaluation/faithfulness/baseline_y_preds_perturbed_twolayer_B.pkl')
-
-    model_explanations = load_obj('/local/work/enguyen/evaluation/baseline_explanations_A.pkl')
-    y_preds_perturbed, y_preds_clean = flip_and_predict(3, dataset['X_test_A'], dataset['y_test_A'], model_explanations,
-                                                        A_testset_t)
-    save_obj(y_preds_perturbed,
-             '/local/work/enguyen/evaluation/faithfulness/baseline_y_preds_perturbed_threelayer_A.pkl')
-
-    model_explanations = load_obj('/local/work/enguyen/evaluation/baseline_explanations_B.pkl')
-    y_preds_perturbed, y_preds_clean = flip_and_predict(3, dataset['X_test_B'], dataset['y_test_B'], model_explanations,
-                                                        B_testset_t)
-    save_obj(y_preds_perturbed,
-             '/local/work/enguyen/evaluation/faithfulness/baseline_y_preds_perturbed_threelayer_B.pkl')
+    for nb_layer in range(3):
+        for expl_type in expl_types:
+            print('Evaluating correctness for {} explanations of {}L-SNN...'.format(expl_type, nb_layer))
+            # A
+            model_explanations = load_obj('../evaluation/{}/{}L_explanations_A.pkl'.format(expl_type, nb_layer))
+            y_preds_perturbed, y_preds_clean = flip_and_predict(nb_layer, dataset['X_test_A'], dataset['y_test_A'],
+                                                                model_explanations,
+                                                                A_testset_t)
+            save_obj(y_preds_perturbed,
+                     '../evaluation/correctness/{}/y_preds_perturbed_{}L_A.pkl'.format(expl_type, nb_layer))
+            # B
+            model_explanations = load_obj('../evaluation/{}/{}L_explanations_B.pkl'.format(expl_type, nb_layer))
+            y_preds_perturbed, y_preds_clean = flip_and_predict(nb_layer, dataset['X_test_B'], dataset['y_test_B'],
+                                                                model_explanations,
+                                                                B_testset_t)
+            save_obj(y_preds_perturbed,
+                     '../evaluation/faithfulness/{}/y_preds_perturbed_{}L_B.pkl'.format(expl_type, nb_layer))
+        print('Correctness evaluation of {}L-SNN is done!'.format(nb_layer))
