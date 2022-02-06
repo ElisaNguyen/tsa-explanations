@@ -25,10 +25,11 @@ else:
 print(device)
 
 
-def tscs(spike_times, tc, model, t, variant):
+def tscs(spike_times, tc, model, t, variant, layer_size=None):
     """
     Function to calculate the Temporal Spike Contribution Score
-    :param variant: TSA variant (string, either 's' or 'ns')
+    :param layer_size: size of layer for which to compute the tscs (int)
+    :param variant: TSA explanation_type (string, either 's' or 'ns')
     :param model: SNN model
     :param tc: current time t (int)
     :param t: time to calculate tscs for (int)
@@ -41,7 +42,7 @@ def tscs(spike_times, tc, model, t, variant):
         if variant == 's':
             score = torch.tensor([0])
         elif variant == 'ns':
-            score = torch.Tensor([-(model.beta ** (tc - t))])
+            score = torch.Tensor([(-1/layer_size)*(model.beta ** (tc - t))])
     return score
 
 
@@ -91,10 +92,10 @@ def get_spike_trains(spk, nb_units):
     return spk_trains
 
 
-def attribution_map_mm(model, inp, layer_recs, probs, tc, variant, for_visualization=False):
+def tsa(model, inp, layer_recs, probs, tc, variant, for_visualization=False):
     """
     Function to compute attribution explanation
-    :param variant: TSA variant (string, 's' or 'ns')
+    :param variant: TSA explanation_type (string, 's' or 'ns')
     :param for_visualization: Boolean flag whether this is for visualization or full explanation extraction
     :param layer_recs: layer recordings of a model that ran an input (list of dicts)
     :param model: SNN model
@@ -120,7 +121,8 @@ def attribution_map_mm(model, inp, layer_recs, probs, tc, variant, for_visualiza
         layers_w_tscs_t = []
         for l in range(model.nb_layers):
             spk_train = layers_spk_trains[l]
-            l_tscs_t = [tscs(spk_train[i][spk_train[i] == t], tc, model, t, variant) for i in range(model.layer_sizes[l])]
+            l_tscs_t = [tscs(spk_train[i][spk_train[i] == t], tc, model, t, variant, layer_size=model.layer_sizes[l])
+                        for i in range(model.layer_sizes[l])]
             l_tscs_t = torch.stack(l_tscs_t).to(device)  # shape (n_layer)
             l_tscs_t = torch.diag(torch.squeeze(l_tscs_t)).type(dtype)  # shape (n_layer, n_layer)
             l_w_tscs_t = torch.matmul(l_tscs_t, w_contributions[l].to(device))  # shape (w[l])
@@ -129,6 +131,51 @@ def attribution_map_mm(model, inp, layer_recs, probs, tc, variant, for_visualiza
         for l_w_tscs_t in layers_w_tscs_t[1:]:
             w_tscs_t = torch.matmul(w_tscs_t, l_w_tscs_t)
         scores = torch.matmul(w_tscs_t, torch.diag(probs))  # shape (n_input, n_output)
+        map.append(scores)
+    map = torch.stack(map)  # shape (tc, n_input, n_output)
+    map = map.transpose(0, 2)  # shape (n_output, n_input, tc)
+    return map
+
+
+def sam(model, inp, layer_recs, probs, tc, for_visualization=False):
+    """
+    Function to compute attribution without considering the weight
+    (in other words, weight contributions =1, having no impact on the scores when multiplying)
+    Application of Kim and Panda (2021)'s work.
+    :param for_visualization: Boolean flag whether this is for visualization or full explanation extraction
+    :param layer_recs: layer recordings of a model that ran an input (list of dicts)
+    :param model:SNN model
+    :param inp: input spikes
+    :param probs: probabilities of the prediction vector (size of c classes) at tc
+    :param tc: time of calculating the attribution from the simulation time (current time)
+    """
+    map = []
+    layers_spk_trains = []
+    inp_spk_trains = get_spike_trains(inp, model.layer_sizes[0])
+    layers_spk_trains.append(inp_spk_trains)
+    for rec in layer_recs[:-1]:  # all hidden layers
+        h_spk_train = get_spike_trains(rec['spk_rec'].to_sparse(), rec['spk_rec'].shape[-1])
+        layers_spk_trains.append(h_spk_train)
+
+    if for_visualization:
+        start_i = tc - 40 if tc > 40 else 0
+    else:
+        start_i = 0
+
+    for t in range(start_i, tc):
+        layers_w_tscs_t = []
+        for l in range(model.nb_layers):
+            spk_train = layers_spk_trains[l]
+            l_tscs_t = [tscs(spk_train[i][spk_train[i] == t], tc, model, t, 's') for i in
+                        range(model.layer_sizes[l])]
+            l_tscs_t = torch.stack(l_tscs_t).to(device)  # shape (n_layer)
+            l_tscs_t = torch.diag(torch.squeeze(l_tscs_t)).type(dtype)  # shape (n_layer, n_layer)
+            l_w_tscs_t = torch.matmul(l_tscs_t, torch.ones(model.weights[l].shape))  # shape (w[l])
+            layers_w_tscs_t.append(l_w_tscs_t)
+        w_tscs_t = layers_w_tscs_t[0]
+        for l_w_tscs_t in layers_w_tscs_t[1:]:
+            w_tscs_t = torch.matmul(w_tscs_t, l_w_tscs_t)
+        scores = torch.matmul(w_tscs_t, torch.diag(probs).to(device))  # shape (n_input, n_output)
         map.append(scores)
     map = torch.stack(map)  # shape (tc, n_input, n_output)
     map = map.transpose(0, 2)  # shape (n_output, n_input, tc)
@@ -199,9 +246,7 @@ def visualize_confidence(ax, probs, color_pallete_hex, nb_outputs, titles, t):
     :param ax: axis to plot on
     :param probs: classification probabilities to plot up to tc
     """
-    # start = len(probs)-60 if len(probs)>60 else 0
     for c in range(nb_outputs):
-        #     ax.plot(range(start, len(probs)), probs.t().cpu().numpy()[c][start:], c=color_pallete_hex[c])
         ax.bar(c, height=probs[-1][c].cpu(), color=color_pallete_hex[c])
     ax.set_title('Confidence distribution at timestep ' + str(t), pad=15)
     ax.set_xticklabels([])
@@ -221,13 +266,11 @@ def create_cmap(rgb):
     return newcmp
 
 
-def visualize_attribution_all(inp, attributions, ax, fig, titles, nb_outputs, t):
+def visualize_attribution_all(inp, attributions, ax, nb_outputs, t):
     """
     Function to visualize the attribution map of one prediction
     :param t: current time - start time (latest time from the data that was run through the network), this can be but must not be the same as tc
     :param nb_outputs: number of outputs (int)
-    :param titles: list of class names
-    :param fig: matplotlib figure
     :param ax: matplotlib axis to plot on
     :param attributions: explanation attribution map
     :param inp: spiking input (sparse tensor)
@@ -253,19 +296,13 @@ def visualize_attribution_all(inp, attributions, ax, fig, titles, nb_outputs, t)
 
         cmap = create_cmap(color_pallete_rgb[c]).reversed()
         cmap.set_under('w', alpha=0)
-        # img_overlay = ax.imshow(c_attr[:, start:tc+1], cmap=cmap, alpha=0.7, interpolation='hanning', vmin=-0.05, vmax=5)
-        img_overlay = ax.imshow(c_attr, cmap=cmap, alpha=0.7, interpolation='hanning', vmin=-0.05, vmax=5)
-        # cax = fig.add_axes([ax.get_position().x1+0.01+(0.06*c),
-        # ax.get_position().y0,
-        # 0.01,
-        # ax.get_position().height])
-        # plt.colorbar(img_overlay, label=titles[c], orientation='vertical', cax=cax)
+        ax.imshow(c_attr, cmap=cmap, alpha=0.7, interpolation='hanning', vmin=-0.05, vmax=5)
 
 
-def construct_explanation_all(model, X, y, pred, log_p, layer_recs, t, variant):
+def construct_explanation_all(model, X, y, pred, log_p, layer_recs, t, explanation_type):
     """
     Function to extract the explanation from an input and model and display it
-    :param variant: TSA variant (string, 's' or 'ns')
+    :param explanation_type: TSA variant (string, 's' or 'ns')
     :param model: SNN model
     :param X: Input (dict form with times and units)
     :param y: ground truth
@@ -281,7 +318,11 @@ def construct_explanation_all(model, X, y, pred, log_p, layer_recs, t, variant):
     data_generator = sparse_data_generator_from_spikes(X, y, model.bs, model.nb_steps, model.layer_sizes[0],
                                                        model.max_time, shuffle=False)
     X_spikes, _ = next(data_generator)
-    attributions = attribution_map_mm(model, X_spikes, layer_recs, probs[-1], t, variant, for_visualization=True)
+
+    if explanation_type == 'sam':
+        attributions = sam(model, X_spikes, layer_recs, probs[-1], t, for_visualization=True)
+    else:
+        attributions = tsa(model, X_spikes, layer_recs, probs[-1], t, explanation_type, for_visualization=True)
 
     fig = plt.figure(tight_layout=False, frameon=False, figsize=(12, 6), dpi=100)
     gs = gridspec.GridSpec(3, 3)
@@ -305,5 +346,5 @@ def construct_explanation_all(model, X, y, pred, log_p, layer_recs, t, variant):
     ax_preds.axis('off')
 
     ax_map = fig.add_subplot(gs[1:, :])
-    visualize_attribution_all(X_spikes, attributions, ax_map, fig, titles, model.layer_sizes[-1], t)
+    visualize_attribution_all(X_spikes, attributions, ax_map, model.layer_sizes[-1], t)
     return attributions

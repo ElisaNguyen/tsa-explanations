@@ -200,9 +200,9 @@ def compute_perturbed_explanation(nb_layers, X_perturbed, y_data, testset_t, exp
         X_p_spikes, _ = next(data_generator)
 
         if explanation_type == 'sam':
-            attribution_p = ncs_attribution_map_mm(model, X_p_spikes, layer_recs_p, probs_p[-1], max_time, tsa_variant='s')
+            attribution_p = sam(model, X_p_spikes, layer_recs_p, probs_p[-1], max_time, tsa_variant='s')
         else:
-            attribution_p = attribution_map_mm(model, X_p_spikes, layer_recs_p, probs_p[-1], max_time, explanation_type)
+            attribution_p = tsa(model, X_p_spikes, layer_recs_p, probs_p[-1], max_time, explanation_type)
         prediction_p = y_p_pred[0][-1]
         e_p = attribution_p[prediction_p]
         perturbed_explanations[t] = (e_p.detach(), prediction_p)

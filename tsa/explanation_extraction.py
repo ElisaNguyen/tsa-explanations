@@ -77,9 +77,9 @@ def extract_explanations_for_quantitative_analysis(testset_t, nb_layers, X_data,
         X_spikes, _ = next(data_generator)
 
         if explanation_type == 'sam':
-            attribution = ncs_attribution_map_mm(model, X_spikes, layer_recs, probs[-1], t - start_t, tsa_variant='s')
+            attribution = sam(model, X_spikes, layer_recs, probs[-1], t - start_t)
         else:
-            attribution = attribution_map_mm(model, X_spikes, layer_recs, probs[-1], t - start_t, explanation_type)
+            attribution = tsa(model, X_spikes, layer_recs, probs[-1], t - start_t, explanation_type)
         prediction = y_pred[0][-1]
         e = attribution[prediction]
 
