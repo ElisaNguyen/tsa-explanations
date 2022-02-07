@@ -213,5 +213,5 @@ with torch.no_grad():
                 oc_score = output_completeness_score(nb_layer, dataset['X_test_B'], dataset['y_test_B'],
                                                      model_explanations, epsilon, B_testset_t, B_y_true)
                 save_obj(oc_score,
-                         '../evaluation/sufficiency/{}/{}L_sufficiency_B_epsilon{}.pkl'.format(expl_type, nb_layer, i))
+                         '../evaluation/output_completeness/{}/{}L_oc_B_epsilon{}.pkl'.format(expl_type, nb_layer, i))
             print('Evaluation of output-completeness for {} explanations of SNN-{}L done!'.format(expl_type, nb_layer))
