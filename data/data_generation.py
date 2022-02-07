@@ -75,7 +75,7 @@ dataset = {'X_train': X_train,
            'X_test': X_test,
            'y_test': np.append(y_test_A, y_test_B, axis=0)}
 
-save_obj(dataset, '/content/drive/MyDrive/Thesis/Notebooks/data/dataset900.pkl')
+save_obj(dataset, 'dataset900.pkl')
 
 X_train_A, y_train_A = generate_dataset(df_A[df_A['set'] == 'train'], len(df_A[df_A['set'] == 'train']))
 X_val_A, y_val_A = generate_dataset(df_A[df_A['set'] == 'val'], len(df_A[df_A['set'] == 'val']))
@@ -97,4 +97,4 @@ dataset_max = {'X_train_A': X_train_A,
                'X_test_B': X_test_B,
                'y_test_B': y_test_B}
 
-save_obj(dataset_max, '/content/drive/MyDrive/Thesis/Notebooks/data/dataset_max.pkl')
+save_obj(dataset_max, 'dataset_max.pkl')
