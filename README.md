@@ -1,14 +1,14 @@
-# Temporal Spike Attribution - A local feature-based explanation for temporally coded Spiking Neural Networks
+# Temporal Spike Attribution
 
 This repository contains the Python 3 code for Temporal Spike Attribution (TSA), a method to extract 
-feature attribution explanations for temporally coded Spiking Neural Network from my [Master Thesis](https://essay.utwente.nl/89110/) at the University of Twente. 
+feature attribution explanations for spiking neural networks (SNN). 
 TSA is demonstrated on a time-series classification use case with SNN models built as recurrent networks in discrete 
 time.[^1]
 
-TSA generates class-wise feature attribution maps that can be overlayed with the spiking data to explain a 
+TSA generates class-wise feature attribution maps that can be overlaid with the spiking data to explain a 
 certain prediction of a SNN, based on model internal variables (i.e., spike trains, learned weights). The intensity corresponds
 to the attribution value and the color corresponds to the class that the input is attributing to. Additionally, 
-the classification confidence is visualised to give context about the model behavior. 
+the classification confidence is visualized to give context about the model behavior. 
 
 ![Example image of a TSA-S explanation](images/explanation_one.png)
 
@@ -36,7 +36,7 @@ meaning that the models predict the subject's current activity at each second.
 3. Run `python preprocessing/adl_data_writing.py` to generate the "long time series" data.
 
 ### SNN model building
-The SNN models use LIF neurons, temporal coding and were implemented as recurrent networks in discrete time trained 
+The SNN models use LIF neurons and were implemented as recurrent networks in discrete time trained 
 with a fast sigmoid surrogate gradient as per tutorial of Dr. F. Zenke[^1]. There are some changes to Dr. Zenke's original
 code as the membrane potential is retained in between epochs and batches to approximate sequential processing of the time series.
 Purely sequential processing requires too much computation time, which is the reason for the approximation. 
@@ -49,14 +49,14 @@ Three SNNs with one, two, three layers respectively are tuned and trained on the
 
 The following hyperparameters were tuned based on the NLL loss on the validation set after 20 epochs training: $\Delta t, \tau_{syn}, \tau_{mem}$, learning rate, batch size, hidden layer sizes. 
 Then, the models are trained with early stopping and a patience of 20 epochs. The scripts to rerun the tuning and training 
-are located in `models`, but the tuned and trained model weights are also available. 
+are located in `models`, but the tuned hyperparameters and trained model weights are also available. 
 
 #### Instructions
 * Run `python data/data_generation.py` to generate and save the datasets in the *times, units* format. `data/dataset900.pkl` then corresponds to the dataset used for tuning and training, while `data/dataset_max.pkl` will be used for the TSA experiments.
-* Run `python models/tuning_onelayersnn.py`, `python models/tuning_twolayersnn.py`, `python models/tuning_threelayersnn.py` to tune the hyperparameters of the different SNN models respectively.
-* Alternatively, the chosen hyperparameters can be inspected as `models/best_params_one.pkl, models/best_params_two.pkl, models/best_params_three.pkl` respectively.
-* Run `python models/training_onelayersnn.py`, `python models/training_twolayersnn.py`, `python models/training_threelayersnn.py` to train the SNN models.
-* Alternatively, the trained weights are available at `models/weights_one_epoch4.pt, models/weights_two_epoch63.pt, models/weights_three_epoch48.pt`.
+* Run `python models/tuning_1L.py`, `python models/tuning_1L.py`, `python models/tuning_3L.py` to tune the hyperparameters of the different SNN models respectively.
+* Alternatively, the chosen hyperparameters can be inspected as `models/best_params_1L.pkl, models/best_params_2L.pkl, models/best_params_3L.pkl` respectively.
+* Run `python models/training_1L.py`, `python models/training_2L.py`, `python models/training_3L.py` to train the SNN models.
+* Alternatively, the trained weights are available at `models/weights_1L_epoch4.pt, models/weights_2L_epoch63.pt, models/weights_3L_epoch48.pt`.
 
 ### Explanation extraction with TSA
 
@@ -76,31 +76,28 @@ This translates to a NCS of 0, so that only spikes are considered in these expla
 
 The second interpretation assumes the absence of a spike to have an effect on the downstream neurons. 
 The effect is the absence of the change that would have occurred if there was a spike at *t*. 
-Hence, the NCS is the negative NCS of spikes. This way, there are also non-spikes considered in the explanation. This approach is called TSA-NS (non-spikes).
+Hence, the NCS is the negative NCS of spikes. This way, there are also non-spikes considered in the explanation. 
+As non-spikes are assumed to not be carrying as much information as spikes, they are scaled down. This approach is called TSA-NS (non-spikes).
 
 The provided code enables the extraction of local explanations with either method.
 For the experiments, a subset of time stamps are defined to extract explanations for (code available in `data/testset_extraction_quantitative_analysis.ipynb`. 
 These are saved in `data/quantitative_test_t_A.pkl` and `data/quantitative_test_t_B.pkl` for the data of subjects A and B respectively.
 
 #### Instructions
-* Create folders `tsa/tsa-s` and `tsa/tsa-ns`.
-* Run `python tsa/explanation_extraction.py` to generate TSA-S, TSA-NS and baseline explanations (random attribution).
+* Create folders `tsa/evaluation/s`, `tsa/evaluation/ns` and `tsa/evaluation/sam`.
+* Run `python tsa/explanation_extraction.py` to generate TSA-S, TSA-NS and baseline SAM[^3] explanations.
 
 ### Evaluation of TSA 
-TSA's explanatory performance is evaluated in faithfulness (explanation selectivity[^4]), attribution sufficiency, stability (max-sensitivity[^5]
-using the Frobenius norm). 
-
-Faithfulness refers to TSA's ability to faithfully represent the model behaviour. 
-Attribution sufficiency addresses whether the feature attributions found by TSA identify a sufficient set of features in the input that are sufficient to the model prediction.
-Stability refers to the behavior of TSA when presented with similar input. 
+TSA's explanatory performance is evaluated according to applicable Co-12 properties[^6]: in correctness (explanation selectivity[^4]), output-completeness, continuity (max-sensitivity[^5]
+using the Frobenius norm) and compactness.
 
 The scripts to run this evaluation are provided in the `tsa` folder. 
 
 #### Instructions
-* Create folders `faithfulness`, `sufficiency`, `sensitivity` with the subfolders `tsa-s` and `tsa-ns` each.
-* Run `python tsa/faithfulness_evaluation.py` (long run-time), `python tsa/sufficiency_evaluation.py`, `python tsa/sensitivity_evaluation.py`. 
+* Create folders `correctness`, `output_completeness`, `continuity` with the subfolders `s`, `ns` and `sam` each.
+* Run `python tsa/correctness_evaluation.py` (long run-time), `python tsa/output_completeness_evaluation.py`, `python tsa/continuity_evaluation.py`. 
 * The results will be in the subfolders created before.
-* View the results by running the notebook `tsa/quantitative_analysis_results.ipynb`.
+* View the results by running the notebook `tsa/quantitative_analysis_results.ipynb`. The evaluation of compactness is also in this notebook.
 
 
 [^1]: Per tutorial of Friedemann Zenke (https://github.com/fzenke/spytorch, License: http://creativecommons.org/licenses/by/4.0/)
@@ -112,3 +109,5 @@ The scripts to run this evaluation are provided in the `tsa` folder.
 [^4]: Grégoire Montavon, W. Samek, and K. Müller. Methods for interpreting and understanding deep neural networks.Digit. Signal Process., 73:1–15, 2018.
 
 [^5]: Chih-Kuan Yeh, Cheng.Yu Hsieh, Arun Suggala, David I Inouye, and Pradeep K Ravikumar. On the (in)fidelity and sensitivity of explanations. In H. Wallach, H. Larochelle,A. Beygelzimer, F. d'Alché-Buc, E. Fox, and R. Garnett, editors,Advances in Neural Information Processing Systems, volume 32. Curran Associates, Inc., 2019.
+
+[^6]: Nauta, Meike, et al. From Anecdotal Evidence to Quantitative Evaluation Methods: A Systematic Review on Evaluating Explainable AI. arXiv preprint arXiv:2201.08164 (2022).
