@@ -126,5 +126,5 @@ with torch.no_grad():
                                                                 model_explanations,
                                                                 B_testset_t)
             save_obj(y_preds_perturbed,
-                     '../evaluation/faithfulness/{}/y_preds_perturbed_{}L_B.pkl'.format(expl_type, nb_layer))
+                     '../evaluation/correctness/{}/y_preds_perturbed_{}L_B.pkl'.format(expl_type, nb_layer))
         print('Correctness evaluation of SNN-{}L is done!'.format(nb_layer))
