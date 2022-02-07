@@ -9,7 +9,6 @@ import pandas as pd
 
 import torch
 
-
 random.seed(123)
 torch.manual_seed(123)
 np.random.seed(123)
@@ -22,14 +21,11 @@ if torch.cuda.is_available():
 else:
     device = torch.device("cpu")
 
-print(device)
-
-sys.path.insert(1, '/local/work/enguyen/tuning')
 from CoreSNN import *
 
-"""### Import data and transform it to right format"""
+"""### Import data"""
 
-dataset = load_obj('/local/work/enguyen/data/dataset900.pkl')
+dataset = load_obj('../data/dataset900.pkl')
 
 X_train = dataset['X_train']
 y_train = dataset['y_train']
@@ -40,15 +36,17 @@ y_test = dataset['y_test']
 
 """### Setup of the spiking network model"""
 
-hyperparams = load_obj('/local/work/enguyen/tuning/results_onelayersnn/best_params.pkl')
+hyperparams = load_obj('best_params_2L.pkl')
 print(hyperparams)
+
+hyperparams['nb_hiddens'] = [hyperparams['nb_hidden']]
 
 nb_inputs = 14
 nb_outputs = 11
-nb_layers = 1
+nb_layers = 2
 max_time = 900
 
-OneLayerSNN = SNN(hyperparams=hyperparams, 
+TwoLayerSNN = SNN(hyperparams=hyperparams, 
                   nb_inputs=nb_inputs, 
                   nb_outputs=nb_outputs, 
                   nb_layers=nb_layers,
@@ -56,6 +54,6 @@ OneLayerSNN = SNN(hyperparams=hyperparams,
 
 """## Training the network"""
 
-model_save_path = '/local/work/enguyen/training/onelayersnn/'
-loss_hist = OneLayerSNN.train(X_train, y_train, path=model_save_path)
-save_obj(loss_hist, model_save_path+"loss_hist.pkl")
+model_save_path = '../models/training/results_2L/'
+loss_hist = TwoLayerSNN.train(X_train, y_train, path=model_save_path)
+save_obj(loss_hist, model_save_path+"loss_hist_2L.pkl")

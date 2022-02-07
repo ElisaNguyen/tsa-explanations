@@ -27,7 +27,7 @@ print(device)
 
 def tscs(spike_times, tc, model, t, variant, layer_size=None):
     """
-    Function to calculate the Temporal Spike Contribution Score
+    Function to calculate the Temporal Spike Contribution Score, in this implementation it is the same as NCS
     :param layer_size: size of layer for which to compute the tscs (int)
     :param variant: TSA explanation_type (string, either 's' or 'ns')
     :param model: SNN model

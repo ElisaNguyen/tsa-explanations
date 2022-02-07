@@ -1,13 +1,10 @@
 # -*- coding: utf-8 -*-
 
-import os
 import random
 import sys
-
 import numpy as np
-import pandas as pd
-
 import torch
+
 
 random.seed(123)
 torch.manual_seed(123)
@@ -23,13 +20,11 @@ else:
 
 print(device)
 
-
-sys.path.insert(1, '/local/work/enguyen/tuning')
 from CoreSNN import *
 
-"""### Import data"""
+"""### Import data and transform it to right format"""
 
-dataset = load_obj('/local/work/enguyen/data/dataset900.pkl')
+dataset = load_obj('../data/dataset900.pkl')
 
 X_train = dataset['X_train']
 y_train = dataset['y_train']
@@ -40,17 +35,14 @@ y_test = dataset['y_test']
 
 """### Setup of the spiking network model"""
 
-hyperparams = load_obj('/local/work/enguyen/tuning/results_twolayersnn/best_params.pkl')
-print(hyperparams)
-
-hyperparams['nb_hiddens'] = [hyperparams['nb_hidden']]
+hyperparams = load_obj('best_params_1L.pkl')
 
 nb_inputs = 14
 nb_outputs = 11
-nb_layers = 2
+nb_layers = 1
 max_time = 900
 
-TwoLayerSNN = SNN(hyperparams=hyperparams, 
+SNN1L = SNN(hyperparams=hyperparams,
                   nb_inputs=nb_inputs, 
                   nb_outputs=nb_outputs, 
                   nb_layers=nb_layers,
@@ -58,6 +50,6 @@ TwoLayerSNN = SNN(hyperparams=hyperparams,
 
 """## Training the network"""
 
-model_save_path = '/local/work/enguyen/training/twolayersnn/'
-loss_hist = TwoLayerSNN.train(X_train, y_train, path=model_save_path)
-save_obj(loss_hist, model_save_path+"loss_hist.pkl")
+model_save_path = '../models/training/results_1L/'
+loss_hist = SNN1L.train(X_train, y_train, path=model_save_path)
+save_obj(loss_hist, model_save_path+"loss_hist_1L.pkl")

@@ -7,7 +7,6 @@ from IPython.display import clear_output
 from sklearn.metrics import balanced_accuracy_score
 import seaborn as sns
 import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
 import pickle
 import random
 
@@ -22,8 +21,6 @@ if torch.cuda.is_available():
     device = torch.device("cuda")
 else:
     device = torch.device("cpu")
-
-print(device)
 
 
 def save_obj(obj, path):

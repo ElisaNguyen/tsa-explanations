@@ -20,14 +20,11 @@ if torch.cuda.is_available():
 else:
     device = torch.device("cpu")
 
-print(device)
-
-sys.path.insert(1, '/local/work/enguyen/tuning')
 from CoreSNN import *
 
 """### Import data"""
 
-dataset = load_obj('/local/work/enguyen/data/dataset900.pkl')
+dataset = load_obj('../data/dataset900.pkl')
 
 X_train = dataset['X_train']
 y_train = dataset['y_train']
@@ -38,7 +35,7 @@ y_test = dataset['y_test']
 
 """### Setup of the spiking network model"""
 
-hyperparams = load_obj('/local/work/enguyen/tuning/results_threelayersnn/best_params.pkl')
+hyperparams = load_obj('best_params_3L.pkl')
 print(hyperparams)
 
 hyperparams['nb_hiddens'] = [hyperparams['nb_hidden1'], hyperparams['nb_hidden2']]
@@ -56,6 +53,6 @@ ThreeLayerSNN = SNN(hyperparams=hyperparams,
 
 """## Training the network"""
 
-model_save_path = '/local/work/enguyen/training/threelayersnn/'
+model_save_path = '../models/training/results_3L/'
 loss_hist = ThreeLayerSNN.train(X_train, y_train, path=model_save_path)
-save_obj(loss_hist, model_save_path + "loss_hist.pkl")
+save_obj(loss_hist, model_save_path + "loss_hist_3L.pkl")
