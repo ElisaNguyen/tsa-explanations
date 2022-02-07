@@ -252,7 +252,7 @@ with torch.no_grad():
                                                                        expl_type, nb_layer))
             model_explanations = load_obj('../evaluation/{}/{}L_explanations_A.pkl'.format(expl_type, nb_layer))
             max_sensitivity = max_sensitivity_score(A_testset_t, model_explanations, perturbed_explanations)
-            save_obj(max_sensitivity, '../evaluation/sensitivity/{}/max_sensitivity_{}A.pkl'.format(expl_type, nb_layer))
+            save_obj(max_sensitivity, '../evaluation/continuity/{}/max_sensitivity_{}A.pkl'.format(expl_type, nb_layer))
             # B
             perturbed_explanations = compute_perturbed_explanation(nb_layer, X_perturbed_B, dataset['y_test_B'],
                                                                    B_testset_t, expl_type,
