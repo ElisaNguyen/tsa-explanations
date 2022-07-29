@@ -9,7 +9,7 @@ TSA generates class-wise feature attribution maps that can be overlaid with the 
 certain prediction of a SNN, based on model internal variables (i.e., spike trains, learned weights). The intensity corresponds
 to the attribution value and the color corresponds to positive (red) or negative (blue) attribution.
 
-![Example image of a TSA-S explanation](images/one_s_177081_breakfast.pdf)
+![Example image of a TSA-NS explanation](images/one_ns_177081_breakfast.pdf)
 
 ### Required Python packages
 * numpy

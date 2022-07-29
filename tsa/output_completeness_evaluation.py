@@ -38,7 +38,7 @@ sys.path.insert(1, '../models')
 from CoreSNN import *
 
 # Load data & fixed variables
-dataset = load_obj('/local/work/enguyen/data/dataset_max.pkl')
+dataset = load_obj('../dataset_max.pkl')
 nb_inputs = 14
 nb_outputs = 11
 
