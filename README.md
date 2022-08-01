@@ -88,15 +88,15 @@ These are saved in `data/quantitative_test_t_A.pkl` and `data/quantitative_test_
 
 ### Evaluation of TSA 
 TSA's explanatory performance is evaluated according to applicable Co-12 properties[^6]: in correctness (explanation selectivity[^4]), output-completeness, continuity (max-sensitivity[^5]
-using the Frobenius norm) and compactness.
+using the Frobenius norm) and compactness (size of the explanation).
 
-The scripts to run this evaluation are provided in the `tsa` folder. 
+The scripts to run this evaluation are provided in the `experiments` folder. 
 
 #### Instructions
 * Create folders `correctness`, `output_completeness`, `continuity` with the subfolders `s`, `ns` and `sam` each.
-* Run `python tsa/correctness_evaluation.py` (long run-time), `python tsa/output_completeness_evaluation.py`, `python tsa/continuity_evaluation.py`. 
+* Run `python experiments/correctness_evaluation.py` (long run-time), `python experiments/output_completeness_evaluation.py`, `python experiments/continuity_evaluation.py`. 
 * The results will be in the subfolders created before.
-* View the results by running the notebook `tsa/quantitative_analysis_results.ipynb`. The evaluation of compactness is also in this notebook.
+* View the results by running the notebook `experiments/quantitative_analysis_results.ipynb`. The evaluation of compactness is also in this notebook.
 
 
 [^1]: Per tutorial of Friedemann Zenke (https://github.com/fzenke/spytorch, License: http://creativecommons.org/licenses/by/4.0/)
