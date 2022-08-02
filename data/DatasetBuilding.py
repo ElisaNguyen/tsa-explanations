@@ -32,10 +32,12 @@ def train_test_split(t, df):
         return 'test'
 
 
-def extract_even_samples(duration, df):
+def extract_even_samples(duration, df, other_class_id, n_inputs):
     """
     Returns spike trains of all input neurons from the input set (df) cut into samples of a certain duration.
     Dataset is on 1 second granularity
+    :param n_inputs: input dimensionality (incl. bias)
+    :param other_class_id: number of classes
     :param duration: duration of the samples in seconds (int)
     :param df: data as pandas dataframe 
     :returns: data and labels in arrays (same length)
@@ -45,8 +47,8 @@ def extract_even_samples(duration, df):
     start_i = 0
     padding = duration - (len(df) % duration) if duration > 1 and duration != len(df) else 0
     df_pad = pd.DataFrame(index=range(padding), columns=df.columns)
-    df_pad['Class'] = 10
-    df_pad.loc[:, df_pad.columns[:14]] = 0
+    df_pad['Class'] = other_class_id
+    df_pad.loc[:, df_pad.columns[:n_inputs]] = 0
     df = df.append(df_pad, ignore_index=True)
     while start_i < len(df):
         end_i = start_i + duration - 1
