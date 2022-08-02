@@ -20,11 +20,12 @@ else:
 
 print(device)
 
+sys.path.insert(1, '../')
 from CoreSNN import *
 
 """### Import data and transform it to right format"""
 
-dataset = load_obj('../data/dataset900.pkl')
+dataset = load_obj('../../data/adl/dataset900.pkl')
 
 X_train = dataset['X_train']
 y_train = dataset['y_train']
@@ -50,6 +51,6 @@ SNN1L = SNN(hyperparams=hyperparams,
 
 """## Training the network"""
 
-model_save_path = '../models/training/results_1L/'
+model_save_path = 'training/results_1L/'
 loss_hist = SNN1L.train(X_train, y_train, path=model_save_path)
 save_obj(loss_hist, model_save_path+"loss_hist_1L.pkl")
