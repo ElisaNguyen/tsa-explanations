@@ -21,7 +21,7 @@ else:
     device = torch.device("cpu")
 
 from ExplanationEvaluation import *
-sys.path.insert(1, '../models')
+sys.path.insert(1, '../../models')
 from CoreSNN import *
 
 # Load data

@@ -23,11 +23,11 @@ print(device)
 from ExplanationCreation import *
 from ExplanationEvaluation import *
 
-sys.path.insert(1, '../models')
+sys.path.insert(1, '../../models')
 from CoreSNN import *
 
 # Load data
-dataset = load_obj('../data/dataset_max.pkl')
+dataset = load_obj('../../data/adl/dataset_max.pkl')
 
 """# Continuity
 Defined as max-sensitivity (maximum change in the attributions when perturbing the input)

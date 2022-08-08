@@ -22,7 +22,7 @@ else:
 from ExplanationCreation import *
 from ExplanationEvaluation import *
 
-sys.path.insert(1, '../models')
+sys.path.insert(1, '../../models')
 from CoreSNN import *
 
 

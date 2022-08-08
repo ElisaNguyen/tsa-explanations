@@ -22,7 +22,7 @@ abs_start_B = min(df_data_B['Start'][0], df_labels_B['Start'][0])
 abs_end_B = max(max(df_data_B['End']), max(df_labels_B['End']))
 timestamps_B = range(int((abs_end_B - abs_start_B).to_numpy() / np.timedelta64(1, 's')) + 1)
 
-os.chdir('../..')
+os.chdir('../../../..')
 df_labelled_A = pd.DataFrame(build_input(st_A, sensors), columns=sensors)
 df_labelled_A['t'] = timestamps_A
 df_labelled_A['Label'] = write_labels(df_data_A, df_labels_A, timestamps_A)
