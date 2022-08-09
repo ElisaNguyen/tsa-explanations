@@ -4,6 +4,7 @@ import sys
 import numpy as np
 import torch
 import tqdm
+from sklearn import metrics
 
 random.seed(123)
 torch.manual_seed(123)
@@ -202,6 +203,201 @@ def get_min_attr(model_explanations):
 def assign_random_attribution(e, min_attr, max_attr):
     e[e != 0] = torch.Tensor(np.random.uniform(min_attr, max_attr, e[e != 0].shape)).to(device)
     return e
+
+
+# Functions for the evaluation of correctness
+def flip_segment(X_spikes, segment):
+    """
+    Flips the values of a segment in X_spikes format
+    :param X_spikes: spiking input data from spike generator
+    :param segment: segment in X_spikes to be flipped
+    :return: spiking data with flipped segment
+    """
+    _, (d, t_start, t_end) = segment
+    X_perturbed = X_spikes.to_dense()
+    X_perturbed[:, t_start:t_end, d] = torch.abs(X_perturbed[:, t_start:t_end, d] - 1)
+    X_perturbed = X_perturbed.to_sparse()
+    return X_perturbed
+
+
+def flip_and_predict(nb_layers, X_data, y_data, model_explanations, testset_t):
+    """
+    Function to get the predictions of the model with nb_layers on X_data when flipping the feature segments
+    :param nb_layers: number of layers of the SNN model
+    :param X_data: input data
+    :param y_data: labels
+    :param model_explanations: extracted explanations for X_data
+    :param testset_t: timestamps that are part of the testset
+    :return: model predictions for perturbed data and original predictions
+    """
+    # define the model for the specific duration (performs same though because the weights are the same)
+    model = initiate_model(nb_layers, 1)
+    # for storing the predictions with flipped segments
+    # Will be an array of duration arrays of each the length of how many segments they have.
+    y_preds_flipped = []
+    y_preds = []
+    # go through the "samples"
+    for t in tqdm(testset_t):
+        e, prediction = model_explanations[t]
+        y_preds.append(prediction)
+        start_t = t - 3600 if t >= 3600 else 0
+
+        model.nb_steps = t - start_t
+        model.max_time = t - start_t
+
+        # get the relevant part of the dataset, this is done for performance reasons
+        X = {'times': X_data['times'][:, np.where((X_data['times'] >= start_t) & (X_data['times'] < t))[1]] - start_t,
+             'units': X_data['units'][:, np.where((X_data['times'] >= start_t) & (X_data['times'] < t))[1]]}
+        y = y_data[:, start_t:t]
+        data_generator = sparse_data_generator_from_spikes(X, y, len(y), model.layer_sizes[0],
+                                                           model.max_time, shuffle=False)
+        X_spikes, _ = next(data_generator)
+
+        # idenfity feature segments in e that are positively or negatively attributing
+        feature_segments = segment_features(e)
+
+        # rank the segments
+        ranked_fs = rank_segments(e, feature_segments)
+
+        y_pred_perturbed = []
+        X_perturbed = X_spikes
+        for i, segment in enumerate(ranked_fs):
+            X_perturbed = flip_segment(X_perturbed, segment)
+
+            # Evaluate & record y_pred for the perturbed input
+            pred_perturbed, _, _ = predict_from_spikes(model, X_perturbed)
+            y_pred_perturbed.append(pred_perturbed[0][-1])
+        y_preds_flipped.append(y_pred_perturbed)
+    return y_preds_flipped, y_preds
+
+
+# Functions for the evaluation of output-completeness
+def identify_high_attribution(ranked_fs, epsilon):
+    """
+    filters the feature segments to those that are contributing more than epsilon
+    :param ranked_fs: list of feature segments with their mean score
+    :param epsilon: threshold for high attribution
+    :return: feature segments that are >epsilon and the sensor dimensions that belong to them
+    """
+    high_attribution_segments = []
+    attributing_sensors = []
+    for fs in ranked_fs:
+        if np.abs(fs[0]) > epsilon:
+            high_attribution_segments.append(fs)
+            if fs[1][0] not in attributing_sensors:
+                attributing_sensors.append(fs[1][0])
+    return high_attribution_segments, attributing_sensors
+
+
+def get_time_segments(sensor, segments):
+    """
+    Function to extract the start timestamps and end timestamps sorted from early to late from a feature segment
+    :param sensor: sensor dimension of segment (int)
+    :param segments: feature segments to extract the timestamps for
+    :returns: starts and ends in sorted lists
+    """
+    starts = []
+    ends = []
+    for _, segment in segments:
+        if segment[0] == sensor:
+            starts.append(segment[1])
+            ends.append(segment[2])
+    starts_sorted = [start for start, _ in sorted(zip(starts, ends))]
+    ends_sorted = [end for _, end in sorted(zip(starts, ends))]
+    return starts_sorted, ends_sorted
+
+
+def perturb_background(attributing_sensors, X_spikes, segments, nb_inputs):
+    """
+    Function to perturb only the background and not the high attributing segments randomly
+    :param attributing_sensors: attributing sensors
+    :param X_spikes: spiking input
+    :param segments: highly attributing segments
+    :returns: perturbed X_spikes
+    """
+    X_spikes_perturbed = X_spikes.to_dense()[0, :, :].t()
+    for sensor in range(nb_inputs):
+        if sensor in attributing_sensors:
+            starts, ends = get_time_segments(sensor, segments)
+
+            # identify the background data (non high attributing)
+            background_data = [X_spikes_perturbed[sensor][:starts[0]]]
+            for next_start, end in zip(starts[1:], ends[:-1]):
+                background_data.append(X_spikes_perturbed[sensor][end:next_start])
+            background_data.append(X_spikes_perturbed[sensor][ends[-1]:])
+            background_data = torch.cat(background_data)
+
+            # randomly permute the background
+            shuffle_idx = torch.randperm(len(background_data))
+            background_data = background_data[shuffle_idx]
+            perturbed_data = [background_data[:starts[0]]]
+            background_data = background_data[starts[0]:]
+            for i in range(len(starts) - 1):
+                perturbed_data.append(X_spikes_perturbed[sensor][starts[i]:ends[i]])
+                perturbed_data.append(background_data[:(starts[i + 1] - ends[i])])
+                background_data = background_data[(starts[i + 1] - ends[i]):]
+            perturbed_data.append(X_spikes_perturbed[sensor][starts[-1]:ends[-1]])
+            perturbed_data.append(background_data)
+            perturbed_data = torch.cat(perturbed_data)
+            X_spikes_perturbed[sensor] = perturbed_data
+        else:
+            shuffle_idx = torch.randperm(X_spikes.shape[1])
+            X_spikes_perturbed[sensor] = X_spikes_perturbed[sensor][shuffle_idx]
+    X_spikes_perturbed = X_spikes_perturbed.t()
+    X_spikes_perturbed = torch.unsqueeze(X_spikes_perturbed, 0)
+    return X_spikes_perturbed.to_sparse()
+
+
+def output_completeness_score(nb_layers, nb_inputs, X_data, y_data, model_explanations, epsilon, testset_t, y_true):
+    """
+    Computes the attribution sufficiency score as the balanced accuracy of the model's predictions on data with perturbed background and the ground truth
+    :param nb_inputs: input dimensionality
+    :param y_true: ground truth labels to compare against
+    :param nb_layers: number of layers of the SNN
+    :param model_explanations: extracted explanations and X_spikes dictionary
+    :param epsilon: threshold for high attribution
+    :param testset_t: timestamps to test
+    :returns: attribution sufficiency score and y_pred_bgperturbed
+    """
+    y_pred_bgperturbed = []
+    y_preds = []
+    model = initiate_model(nb_layers, 1)
+    for t in tqdm(testset_t):
+        start_t = t - 3600 if t >= 3600 else 0
+        model.nb_steps = t - start_t
+        model.max_time = t - start_t
+
+        e, prediction = model_explanations[t]
+        y_preds.append(prediction)
+
+        # get the relevant part of the dataset, this is done for performance reasons
+        X = {'times': X_data['times'][:, np.where((X_data['times'] >= start_t) & (X_data['times'] < t))[1]] - start_t,
+             'units': X_data['units'][:, np.where((X_data['times'] >= start_t) & (X_data['times'] < t))[1]]}
+        y = y_data[:, start_t:t]
+        data_generator = sparse_data_generator_from_spikes(X, y, len(y), model.nb_steps, model.layer_sizes[0],
+                                                           model.max_time, shuffle=False)
+        X_spikes, _ = next(data_generator)
+
+        fs = segment_features(e)
+        fs_scores = rank_segments(e, fs)
+        high_attribution_segments, attributing_sensors = identify_high_attribution(fs_scores, epsilon)
+        X_spikes_perturbed = perturb_background(attributing_sensors, X_spikes, high_attribution_segments, nb_inputs)
+
+        y_pred_perturbed_here, _, _ = predict_from_spikes(model, X_spikes_perturbed)
+        y_pred_bgperturbed.append(y_pred_perturbed_here[0][-1])
+    score = metrics.balanced_accuracy_score(y_preds, y_pred_bgperturbed)
+    return score, y_preds, y_pred_bgperturbed
+
+
+def get_epsilons(max_attr):
+    """
+    Given all explanations of one SNN model across both data subjects, find the epsilons at 25,
+    50 and 75% of the attribution range of positive attributions
+    :param max_attr: maximum absolute attribution value
+    :return:
+    """
+    epsilons = [(0), (0.25 * max_attr), (0.5 * max_attr), (0.75 * max_attr)]
+    return epsilons
 
 
 # Functions for the evaluation of continuity
