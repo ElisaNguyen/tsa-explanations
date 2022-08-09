@@ -4,11 +4,6 @@ import torch
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
-import matplotlib.gridspec as gridspec
-from matplotlib.colors import ListedColormap
-
-sys.path.insert(1, '../models')
-from CoreSNN import sparse_data_generator_from_spikes
 
 random.seed(123)
 torch.manual_seed(123)
@@ -25,16 +20,16 @@ else:
 print(device)
 
 
-def tscs(spike_times, tc, model, t, variant, layer_size=None):
+def spike_contribution(spike_times, tc, model, t, variant, layer_size=None):
     """
-    Function to calculate the Temporal Spike Contribution Score, in this implementation it is the same as NCS
+    Function to calculate the spike contribution (referred to as N in the paper)
     :param layer_size: size of layer for which to compute the tscs (int)
     :param variant: TSA explanation_type (string, either 's' or 'ns')
     :param model: SNN model
     :param tc: current time t (int)
-    :param t: time to calculate tscs for (int)
+    :param t: time to calculate the spike contribution for (int)
     :param spike_times: spike times up until t (Tensor)
-    :returns: Tensor of temporal spike contribution scores of all past spikes from spike_times
+    :returns: Tensor of scores of all past spikes from spike_times
     """
     diff_t = torch.abs(tc - spike_times)
     score = model.beta ** diff_t
@@ -59,25 +54,9 @@ def spk_times_per_unit(spk, units, unit):
     return torch.Tensor(spk_times)
 
 
-def get_weight_contributions(ws):
-    """
-    Compute weight contributions
-    :param ws: all weights of the model
-    :returns: weight contribution matrices of same size as ws
-    """
-    abs_ws = [torch.abs(w) for w in ws]
-    w_contributions = []
-    for w_a, w in zip(abs_ws, ws):
-        min_w = torch.min(w_a)
-        max_w = torch.max(w_a)
-        w_norm = (w_a - min_w) / (max_w - min_w)
-        w_contributions.append(w.sign() * w_norm)
-    return w_contributions
-
-
 def get_spike_trains(spk, nb_units):
     """
-    Function to get spike train per input 
+    Function to get spike train per input dimension
     :param spk: spikes
     :param nb_units: amount of inpute dimensions
     :return: spike trains per input in a nb_units x T format
@@ -94,7 +73,7 @@ def get_spike_trains(spk, nb_units):
 
 def tsa(model, inp, layer_recs, probs, tc, variant, for_visualization=False):
     """
-    Function to compute attribution explanation
+    Function to compute TSA explanation
     :param variant: TSA explanation_type (string, 's' or 'ns')
     :param for_visualization: Boolean flag whether this is for visualization or full explanation extraction
     :param layer_recs: layer recordings of a model that ran an input (list of dicts)
@@ -103,38 +82,38 @@ def tsa(model, inp, layer_recs, probs, tc, variant, for_visualization=False):
     :param probs: probabilities of the prediction vector (size of c classes) at tc
     :param tc: time of calculating the attribution from the simulation time (current time)
     """
-    map = []
+    tsa_map = []
     layers_spk_trains = []
     inp_spk_trains = get_spike_trains(inp, model.layer_sizes[0])
     layers_spk_trains.append(inp_spk_trains)
     for rec in layer_recs[:-1]:  # all hidden layers
         h_spk_train = get_spike_trains(rec['spk_rec'].to_sparse(), rec['spk_rec'].shape[-1])
         layers_spk_trains.append(h_spk_train)
-    w_contributions = get_weight_contributions(model.weights)
+    w_contributions = model.weights  # weight contribution
 
-    if for_visualization:
+    if for_visualization:  # if this is for visualization, compute only the last minute to speed up computation
         start_i = tc - 60 if tc > 60 else 0
     else:
         start_i = 0
 
     for t in range(start_i, tc):
-        layers_w_tscs_t = []
+        layers_w_spk_contr_t = []  # initialize to store N_w per layer
         for l in range(model.nb_layers):
-            spk_train = layers_spk_trains[l]
-            l_tscs_t = [tscs(spk_train[i][spk_train[i] == t], tc, model, t, variant, layer_size=model.layer_sizes[l])
-                        for i in range(model.layer_sizes[l])]
-            l_tscs_t = torch.stack(l_tscs_t).to(device)  # shape (n_layer)
-            l_tscs_t = torch.diag(torch.squeeze(l_tscs_t)).type(dtype)  # shape (n_layer, n_layer)
-            l_w_tscs_t = torch.matmul(l_tscs_t, w_contributions[l].to(device))  # shape (w[l])
-            layers_w_tscs_t.append(l_w_tscs_t)
-        w_tscs_t = layers_w_tscs_t[0]
-        for l_w_tscs_t in layers_w_tscs_t[1:]:
-            w_tscs_t = torch.matmul(w_tscs_t, l_w_tscs_t)
-        scores = torch.matmul(w_tscs_t, torch.diag(probs))  # shape (n_input, n_output)
-        map.append(scores)
-    map = torch.stack(map)  # shape (tc, n_input, n_output)
-    map = map.transpose(0, 2)  # shape (n_output, n_input, tc)
-    return map
+            spk_train = layers_spk_trains[l]  # get the spike trains from the layer
+            l_spk_contr_t = [spike_contribution(spk_train[i][spk_train[i] == t], tc, model, t, variant, layer_size=model.layer_sizes[l])
+                        for i in range(model.layer_sizes[l])]  # compute the spike train contribution N(t)
+            l_spk_contr_t = torch.stack(l_spk_contr_t).to(device)  # shape (n_layer)
+            l_spk_contr_t = torch.diag(torch.squeeze(l_spk_contr_t)).type(dtype)  # shape (n_layer, n_layer)
+            l_w_spk_contr_t = torch.matmul(l_spk_contr_t, w_contributions[l].to(device))  # shape (w[l]), compute the weighted spike contribution N_w(t) of a layer
+            layers_w_spk_contr_t.append(l_w_spk_contr_t)
+        w_spk_contr_t = layers_w_spk_contr_t[0]
+        for l_w_spk_contr_t in layers_w_spk_contr_t[1:]:
+            w_spk_contr_t = torch.matmul(w_spk_contr_t, l_w_spk_contr_t) # forward pass of the spike time and weights contribution
+        scores = torch.matmul(w_spk_contr_t, torch.diag(probs))  # shape (n_input, n_output), forward pass to the last layer (multiplication with the classification confidence)
+        tsa_map.append(scores)
+    tsa_map = torch.stack(tsa_map)  # shape (tc, n_input, n_output)
+    tsa_map = tsa_map.transpose(0, 2)  # shape (n_output, n_input, tc)
+    return tsa_map
 
 
 def sam(model, inp, layer_recs, probs, tc, for_visualization=False):
@@ -149,7 +128,7 @@ def sam(model, inp, layer_recs, probs, tc, for_visualization=False):
     :param probs: probabilities of the prediction vector (size of c classes) at tc
     :param tc: time of calculating the attribution from the simulation time (current time)
     """
-    map = []
+    sam_map = []
     layers_spk_trains = []
     inp_spk_trains = get_spike_trains(inp, model.layer_sizes[0])
     layers_spk_trains.append(inp_spk_trains)
@@ -163,39 +142,39 @@ def sam(model, inp, layer_recs, probs, tc, for_visualization=False):
         start_i = 0
 
     for t in range(start_i, tc):
-        layers_w_tscs_t = []
+        layers_w_spk_contr_t = []
         for l in range(model.nb_layers):
             spk_train = layers_spk_trains[l]
-            l_tscs_t = [tscs(spk_train[i][spk_train[i] == t], tc, model, t, 's') for i in
+            l_spk_contr_t = [spike_contribution(spk_train[i][spk_train[i] == t], tc, model, t, 's') for i in
                         range(model.layer_sizes[l])]
-            l_tscs_t = torch.stack(l_tscs_t).to(device)  # shape (n_layer)
-            l_tscs_t = torch.diag(torch.squeeze(l_tscs_t)).type(dtype)  # shape (n_layer, n_layer)
-            l_w_tscs_t = torch.matmul(l_tscs_t, torch.ones(model.weights[l].shape))  # shape (w[l])
-            layers_w_tscs_t.append(l_w_tscs_t)
-        w_tscs_t = layers_w_tscs_t[0]
-        for l_w_tscs_t in layers_w_tscs_t[1:]:
-            w_tscs_t = torch.matmul(w_tscs_t, l_w_tscs_t)
-        scores = torch.matmul(w_tscs_t, torch.diag(probs).to(device))  # shape (n_input, n_output)
-        map.append(scores)
-    map = torch.stack(map)  # shape (tc, n_input, n_output)
-    map = map.transpose(0, 2)  # shape (n_output, n_input, tc)
-    return map
+            l_spk_contr_t = torch.stack(l_spk_contr_t).to(device)  # shape (n_layer)
+            l_spk_contr_t = torch.diag(torch.squeeze(l_spk_contr_t)).type(dtype)  # shape (n_layer, n_layer)
+            l_w_spk_contr_t = torch.matmul(l_spk_contr_t, torch.ones(model.weights[l].shape))  # shape (w[l])
+            layers_w_spk_contr_t.append(l_w_spk_contr_t)
+        w_spk_contr_t = layers_w_spk_contr_t[0]
+        for l_w_spk_contr_t in layers_w_spk_contr_t[1:]:
+            w_spk_contr_t = torch.matmul(w_spk_contr_t, l_w_spk_contr_t)
+        scores = torch.matmul(w_spk_contr_t, torch.diag(probs).to(device))  # shape (n_input, n_output)
+        sam_map.append(scores)
+    sam_map = torch.stack(sam_map)  # shape (tc, n_input, n_output)
+    sam_map = sam_map.transpose(0, 2)  # shape (n_output, n_input, tc)
+    return sam_map
 
 
-def visualize_data(spike_data, ax, t):
+def visualize_data(spike_data, ax, t, titles):
     """
     Function to visualize the spiking data 
     :param spike_data: 2D numpy array with the spike data in the shape (nb_input, tc)
     :param ax: axis to plot it on
     :param tc: current time
+    :param titles: array of input dimension titles (strings)
     """
     start = t - 60 if t > 60 else 0
     ax.imshow(np.zeros(spike_data.shape), cmap=plt.cm.gray_r)
     ax.grid(color=(229/256,229/256,229/256), linestyle='-', linewidth=0.5)
     ax.set_yticks(range(spike_data.shape[0]))
-    ax.set_yticklabels(['Bias', 'Maindoor', 'Cupboard', 'Fridge', 'Shower', 'Toaster', 'Microwave', 'Cooktop',
-                        'Seat', 'Toilet', 'Basin', 'Bed', 'Cabinet', 'Door'])
-    ax.set_ylabel('Sensors')
+    ax.set_yticklabels(titles)
+    ax.set_ylabel('Input sensors')
     ax.set_xticks(range(0, spike_data.shape[1]))
     ax.set_xticklabels(range(start + 1, t + 1), rotation=315, ha='left')
     ax.set_xlabel('Time (sec)')
@@ -223,7 +202,7 @@ def visualize_attribution_class(inp, e, tc, ax, fig, titles):
     start = tc - 60 if tc > 60 else 0
     attributions, c = e
     data = np.transpose(inp.to_dense()[0].cpu().numpy())[:, start:tc + 1]
-    visualize_data(data, ax, tc)
+    visualize_data(data, ax, tc, titles)
     denom = torch.max(attributions)
 
     img_overlay = ax.imshow((attributions / denom).detach().cpu()[:, start:tc + 1], cmap=plt.cm.seismic, alpha=.7,
@@ -254,97 +233,3 @@ def visualize_confidence(ax, probs, color_pallete_hex, nb_outputs, titles, t):
     ax.set_xlabel('Classes C')
     ax.set_ylabel('P(C|x)')
     ax.legend(titles, bbox_to_anchor=(1.02, 0.5))
-
-
-def create_cmap(rgb):
-    N = 256
-    vals = np.ones((N, 4))
-    vals[:, 0] = np.linspace(rgb[0] / 256, 1, N)
-    vals[:, 1] = np.linspace(rgb[1] / 256, 1, N)
-    vals[:, 2] = np.linspace(rgb[2] / 256, 1, N)
-    newcmp = ListedColormap(vals)
-    return newcmp
-
-
-def visualize_attribution_all(inp, attributions, ax, nb_outputs, t):
-    """
-    Function to visualize the attribution map of one prediction
-    :param t: current time - start time (latest time from the data that was run through the network), this can be but must not be the same as tc
-    :param nb_outputs: number of outputs (int)
-    :param ax: matplotlib axis to plot on
-    :param attributions: explanation attribution map
-    :param inp: spiking input (sparse tensor)
-    """
-    start = t - 60 if t > 60 else 0
-
-    data = np.transpose(inp.to_dense()[0].cpu().numpy())[:, start:t + 1]
-    visualize_data(data, ax, t)
-    m, am = torch.max(attributions, dim=0)  # get the max class confidence values
-    min_attr = torch.min(attributions).detach().cpu().numpy()
-    max_attr = torch.max(attributions).detach().cpu().numpy()
-
-    ax.set_title('Feature attribution', pad=15)
-    color_pallete_rgb = [(88, 181, 225), (175, 33, 104), (79, 210, 86), (247, 94, 240), (48, 106, 60), (252, 153, 213),
-                         (152, 213, 160), (11, 41, 208), (230, 215, 82), (38, 85, 130), (251, 144, 70)]
-
-    for c in range(nb_outputs):
-        c_filter = (am == c)
-        c_attr = attributions[c].detach().cpu() * c_filter.detach().cpu()
-        c_attr = np.ma.masked_where(c_attr == 0, c_attr)
-        c_attr = ((c_attr - min_attr) / (max_attr - min_attr)) * 5
-        c_attr[c_attr.mask] = -10
-
-        cmap = create_cmap(color_pallete_rgb[c]).reversed()
-        cmap.set_under('w', alpha=0)
-        ax.imshow(c_attr, cmap=cmap, alpha=0.7, interpolation='hanning', vmin=-0.05, vmax=5)
-
-
-def construct_explanation_all(model, X, y, pred, log_p, layer_recs, t, explanation_type):
-    """
-    Function to extract the explanation from an input and model and display it
-    :param explanation_type: TSA variant (string, 's' or 'ns')
-    :param model: SNN model
-    :param X: Input (dict form with times and units)
-    :param y: ground truth
-    :param pred: predictions from the model run
-    :param log_p: log probabilities from the model run
-    :param layer_recs: layer recordings from the model run
-    :param t: timestamp of sample
-    :return: explanation attribution map
-    """
-    prediction = np.squeeze(pred)[-1]
-    probs = torch.squeeze(torch.exp(log_p)).t()
-
-    data_generator = sparse_data_generator_from_spikes(X, y, model.bs, model.nb_steps, model.layer_sizes[0],
-                                                       model.max_time, shuffle=False)
-    X_spikes, _ = next(data_generator)
-
-    if explanation_type == 'sam':
-        attributions = sam(model, X_spikes, layer_recs, probs[-1], t, for_visualization=True)
-    else:
-        attributions = tsa(model, X_spikes, layer_recs, probs[-1], t, explanation_type, for_visualization=True)
-
-    fig = plt.figure(tight_layout=False, frameon=False, figsize=(12, 6), dpi=100)
-    gs = gridspec.GridSpec(3, 3)
-    plt.subplots_adjust(wspace=0.75, hspace=0.5)
-
-    titles = ['Sleeping', 'Toileting', 'Showering', 'Breakfast', 'Grooming',
-              'Spare_Time/TV', 'Leaving', 'Lunch', 'Snack', 'Dinner', 'Other']
-    color_pallete_hex = ["#58b5e1", "#af2168", "#4fd256", "#f75ef0", "#306a3c", "#fc99d5", "#98d5a0", "#0b29d0",
-                         "#e6d752", "#265582", "#fb9046"]
-
-    ax_conf = fig.add_subplot(gs[0, 1:])
-    visualize_confidence(ax_conf, probs[:t + 1], color_pallete_hex, model.layer_sizes[-1], titles, t)
-
-    ax_preds = fig.add_subplot(gs[0, 0])
-    ax_preds.text(-0.1, 0.25, 'Predicted class: ' + titles[prediction],
-                  fontsize=14, ha='left',
-                  bbox=dict(facecolor='none', edgecolor=color_pallete_hex[prediction], pad=10.0, linewidth=2))
-    ax_preds.text(-0.1, 0.75, 'True label: ' + titles[int(y[0][-1])],
-                  fontsize=14, ha='left',
-                  bbox=dict(facecolor='none', edgecolor=color_pallete_hex[int(y[0][-1])], pad=10.0, linewidth=2))
-    ax_preds.axis('off')
-
-    ax_map = fig.add_subplot(gs[1:, :])
-    visualize_attribution_all(X_spikes, attributions, ax_map, model.layer_sizes[-1], t)
-    return attributions
