@@ -55,12 +55,12 @@ def extract_explanations_for_quantitative_analysis(testset_t, nb_layers, X_data,
     testset_explanations = {}
     for t in tqdm(testset_t):
         # get the relevant part of the dataset, this is done for performance reasons
-        start_t = t - 3600 if t >= 3600 else 0
+        start_t = t - 1000 if t >= 1000 else 0
         X = {'times': X_data['times'][:, np.where((X_data['times'] >= start_t) & (X_data['times'] < t))[1]] - start_t,
              'units': X_data['units'][:, np.where((X_data['times'] >= start_t) & (X_data['times'] < t))[1]]}
         y = y_data[:, start_t:t]
 
-        model = initiate_model(nb_layers, (t - start_t))
+        model = initiate_adl_model(nb_layers, (t - start_t))
 
         # reset synaptic currents and membrane potentials to fit the data duration
         model.syns = []

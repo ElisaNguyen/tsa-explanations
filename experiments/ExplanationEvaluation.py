@@ -41,7 +41,7 @@ def sample_n_testset(labels, n):
     return test_set_t
 
 
-def initiate_model(nb_layers, t):
+def initiate_adl_model(nb_layers, t):
     """
     Function that initiates a SNN model with nb_layers which runs data of duration t, only defined for 3 layers
     :param nb_layers: (int) to define the number of layers
@@ -83,6 +83,57 @@ def initiate_model(nb_layers, t):
                     max_time=t)
 
         model.inference('../models/weights_3L_epoch48.pt')
+        return model
+
+
+def initiate_syn_model(nb_layers, t):
+    """
+    Function that initiates a SNN model with nb_layers which runs data of duration t, only defined for 3 layers for the synthetic dataset
+    :param nb_layers: (int) to define the number of layers
+    :param t: max_time and nb_steps is defined by this (int)
+    """
+    nb_inputs = 3
+    nb_outputs = 4
+    hyperparams = {'time_step': 0.001,
+               'tau_syn': 0.01,
+               'tau_mem': 0.001,
+               'optimizer': optim.Adam,
+               'learning_rate': 0.01,
+               'batch_size': 128,
+               'nb_hiddens': 10}
+    if nb_layers == 1:
+        params_onelayer = hyperparams
+        model = SNN(hyperparams=params_onelayer,
+                          nb_inputs=nb_inputs,
+                          nb_outputs=nb_outputs,
+                          nb_layers=1,
+                          nb_steps=t,
+                          max_time=t)
+
+        model.inference('../models/synthetic/weights_1L.pt')
+        return model
+    elif nb_layers == 2:
+        params_twolayer = hyperparams
+        params_twolayer['nb_hiddens'] = [hyperparams['nb_hiddens']]
+        model = SNN(hyperparams=params_twolayer,
+                          nb_inputs=nb_inputs,
+                          nb_outputs=nb_outputs,
+                          nb_layers=2,
+                          nb_steps=t,
+                          max_time=t)
+
+        model.inference('../models/synthetic/weights_2L.pt')
+        return model
+    elif nb_layers == 3:
+        params_threelayer = hyperparams
+        params_twolayer['nb_hiddens'] = [hyperparams['nb_hiddens'], hyperparams['nb_hiddens']]
+        model = SNN(hyperparams=params_threelayer,
+                          nb_inputs=nb_inputs,
+                          nb_outputs=nb_outputs,
+                          nb_layers=3,
+                          nb_steps=t,
+                          max_time=t)
+        model.inference('../models/synthetic/weights_3L.pt')
         return model
 
 

@@ -38,7 +38,7 @@ sys.path.insert(1, '../../models')
 from CoreSNN import *
 
 # Load data & fixed variables
-dataset = load_obj('../dataset_max.pkl')
+dataset = load_obj('../../data/adl/dataset_max.pkl')
 nb_inputs = 14
 nb_outputs = 11
 
@@ -54,8 +54,8 @@ Definition here: attribution values > 0 of the feature segments are important.
 
 # concatenate A and B together for one network and find the max
 # then test 0, 25% and 75% of the [0, max] interval as epsilons
-A_testset_t = load_obj('../../data/quantitative_test_t_A.pkl')
-B_testset_t = load_obj('../../data/quantitative_test_t_B.pkl')
+A_testset_t = load_obj('../../data/adl/quantitative_test_t_A.pkl')
+B_testset_t = load_obj('../../data/adl/quantitative_test_t_B.pkl')
 A_y_true = dataset['y_test_A'][:, A_testset_t]
 B_y_true = dataset['y_test_B'][:, B_testset_t]
 expl_types = ['s', 'ns', 'sam']
@@ -65,8 +65,8 @@ with torch.no_grad():
         # get epsilons
         max_attr = -50
         min_attr = 50
-        for filename in os.listdir('../evaluation/{}'.format(expl_type)):
-            f = '../evaluation/{}/{}'.format(expl_type, filename)
+        for filename in os.listdir('explanations/{}'.format(expl_type)):
+            f = 'explanations/{}/{}'.format(expl_type, filename)
             if os.path.isfile(f):
                 max_attr = max(max_attr, get_max_attr(f))
                 min_attr = min(min_attr, get_min_attr(f))
@@ -75,17 +75,17 @@ with torch.no_grad():
 
         for nb_layer in range(3):
             # A
-            model_explanations = load_obj('../evaluation/{}/{}L_explanations_A.pkl'.format(expl_type, nb_layer))
+            model_explanations = load_obj('explanations/{}/{}L_explanations_A.pkl'.format(expl_type, nb_layer))
             for i, epsilon in enumerate(epsilons):
                 oc_score = output_completeness_score(nb_layer, dataset['X_test_A'], dataset['y_test_A'],
                                                      model_explanations, epsilon, A_testset_t, A_y_true)
                 save_obj(oc_score,
-                         '../evaluation/output_completeness/{}/{}L_oc_A_epsilon{}.pkl'.format(expl_type, nb_layer, i))
+                         'output_completeness/{}/{}L_oc_A_epsilon{}.pkl'.format(expl_type, nb_layer, i))
             # B
-            model_explanations = load_obj('../evaluation/{}/{}L_explanations_B.pkl'.format(expl_type, nb_layer))
+            model_explanations = load_obj('explanations/{}/{}L_explanations_B.pkl'.format(expl_type, nb_layer))
             for i, epsilon in enumerate(epsilons):
                 oc_score = output_completeness_score(nb_layer, dataset['X_test_B'], dataset['y_test_B'],
                                                      model_explanations, epsilon, B_testset_t, B_y_true)
                 save_obj(oc_score,
-                         '../evaluation/output_completeness/{}/{}L_oc_B_epsilon{}.pkl'.format(expl_type, nb_layer, i))
+                         'output_completeness/{}/{}L_oc_B_epsilon{}.pkl'.format(expl_type, nb_layer, i))
             print('Evaluation of output-completeness for {} explanations of SNN-{}L done!'.format(expl_type, nb_layer))
