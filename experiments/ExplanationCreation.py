@@ -24,7 +24,7 @@ def spike_contribution(spike_times, tc, model, t, variant, layer_size=None):
     """
     Function to calculate the spike contribution (referred to as N in the paper)
     :param layer_size: size of layer for which to compute the tscs (int)
-    :param variant: TSA explanation_type (string, either 's' or 'ns')
+    :param variant: TSA expl_type (string, either 's' or 'ns')
     :param model: SNN model
     :param tc: current time t (int)
     :param t: time to calculate the spike contribution for (int)
@@ -74,7 +74,7 @@ def get_spike_trains(spk, nb_units):
 def tsa(model, inp, layer_recs, probs, tc, variant, for_visualization=False):
     """
     Function to compute TSA explanation
-    :param variant: TSA explanation_type (string, 's' or 'ns')
+    :param variant: TSA expl_type (string, 's' or 'ns')
     :param for_visualization: Boolean flag whether this is for visualization or full explanation extraction
     :param layer_recs: layer recordings of a model that ran an input (list of dicts)
     :param model: SNN model
