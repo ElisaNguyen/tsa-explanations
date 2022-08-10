@@ -22,23 +22,17 @@ sys.path.insert(1, '../../models')
 from CoreSNN import *
 
 # Load data
-dataset = load_obj('../../data/dataset_max.pkl')
+dataset = load_obj('../../data/adl/dataset_max.pkl')
 
 # Fixed parameters
 nb_inputs = 14
 nb_outputs = 11
 
-"""# Correctness
-
-Correctness is measured in explanation selectivity. 
-This is the average AUC of the graphs resulting from flipping the most important feature segments of the explanation.
-"""
-
 
 expl_types = ['s', 'ns', 'sam']
 with torch.no_grad():
-    A_testset_t = load_obj('../../data/quantitative_test_t_A.pkl')
-    B_testset_t = load_obj('../../data/quantitative_test_t_B.pkl')
+    A_testset_t = load_obj('../../data/adl/quantitative_test_t_A.pkl')
+    B_testset_t = load_obj('../../data/adl/quantitative_test_t_B.pkl')
     A_y_true = dataset['y_test_A'][:, A_testset_t]
     B_y_true = dataset['y_test_B'][:, B_testset_t]
 
@@ -46,17 +40,17 @@ with torch.no_grad():
         for expl_type in expl_types:
             print('Evaluating correctness for {} explanations of {}L-SNN...'.format(expl_type, nb_layer))
             # A
-            model_explanations = load_obj('../evaluation/{}/{}L_explanations_A.pkl'.format(expl_type, nb_layer))
+            model_explanations = load_obj('explanations/{}/{}L_explanations_A.pkl'.format(expl_type, nb_layer))
             y_preds_perturbed, y_preds_clean = flip_and_predict(nb_layer, dataset['X_test_A'], dataset['y_test_A'],
                                                                 model_explanations,
                                                                 A_testset_t)
             save_obj(y_preds_perturbed,
-                     '../evaluation/correctness/{}/y_preds_perturbed_{}L_A.pkl'.format(expl_type, nb_layer))
+                     'correctness/{}/y_preds_perturbed_{}L_A.pkl'.format(expl_type, nb_layer))
             # B
-            model_explanations = load_obj('../evaluation/{}/{}L_explanations_B.pkl'.format(expl_type, nb_layer))
+            model_explanations = load_obj('explanations/{}/{}L_explanations_B.pkl'.format(expl_type, nb_layer))
             y_preds_perturbed, y_preds_clean = flip_and_predict(nb_layer, dataset['X_test_B'], dataset['y_test_B'],
                                                                 model_explanations,
                                                                 B_testset_t)
             save_obj(y_preds_perturbed,
-                     '../evaluation/correctness/{}/y_preds_perturbed_{}L_B.pkl'.format(expl_type, nb_layer))
+                     'correctness/{}/y_preds_perturbed_{}L_B.pkl'.format(expl_type, nb_layer))
         print('Correctness evaluation of SNN-{}L is done!'.format(nb_layer))
