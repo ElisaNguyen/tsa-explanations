@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-
+import os
 import random
 import sys
 import numpy as np
@@ -26,10 +26,10 @@ from CoreSNN import *
 
 
 # Load data
-dataset = load_obj('../data/dataset_max.pkl')
+dataset = load_obj('../../data/adl/dataset_max.pkl')
 
-A_testset_t = load_obj('../data/quantitative_test_t_A.pkl')
-B_testset_t = load_obj('../data/quantitative_test_t_B.pkl')
+A_testset_t = load_obj('../../data/adl/quantitative_test_t_A.pkl')
+B_testset_t = load_obj('../../data/adl/quantitative_test_t_B.pkl')
 A_y_true = dataset['y_test_A'][:, A_testset_t]
 B_y_true = dataset['y_test_B'][:, B_testset_t]
 
@@ -83,7 +83,7 @@ def extract_explanations_for_quantitative_analysis(testset_t, nb_layers, X_data,
         e = attribution[prediction]
 
         testset_explanations[t] = (e.detach(), prediction)
-        save_obj(testset_explanations, 'explanations/' + filename + '.pkl')
+        save_obj(testset_explanations, os.getcwd() + '\\explanations\\' + filename + '.pkl')
 
 
 expl_types = ['s', 'ns', 'sam']
@@ -92,7 +92,7 @@ for nb_layer in range(3):
     for expl_type in expl_types:
         # A
         extract_explanations_for_quantitative_analysis(A_testset_t, nb_layer, dataset['X_test_A'], dataset['y_test_A'],
-                                                       expl_type, '{}/{}L_explanations_A'.format(expl_type, nb_layer))
+                                                       expl_type, '{}\\{}L_explanations_A'.format(expl_type, nb_layer))
         # B
         extract_explanations_for_quantitative_analysis(B_testset_t, nb_layer, dataset['X_test_B'], dataset['y_test_B'],
-                                                       expl_type, '{}/{}L_explanations_B'.format(expl_type, nb_layer))
+                                                       expl_type, '{}\\{}L_explanations_B'.format(expl_type, nb_layer))
