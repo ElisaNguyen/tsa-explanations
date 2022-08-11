@@ -92,6 +92,9 @@ The scripts to run this evaluation are provided in the `experiments/adl` and `ex
 * The results will be in the subfolders created before.
 * View the results by running the notebook `experiments/adl/quantitative_analysis_adl.ipynb` and `experiments/synthetic/quantitative_analysis_syn.ipynb`. The evaluation of compactness is also in these notebooks.
 
+#### Visualization
+To visualize the attribution map, use the function `visualize_attribution_class()` of `ExplanationCreation.py`. 
+
 Unfortunately, the extracted explanation files from the original experiments are too large to provide on Github. If you are interested, please don't hesitate to get in contact.
 
 [^1]: Per tutorial of Friedemann Zenke (https://github.com/fzenke/spytorch, License: http://creativecommons.org/licenses/by/4.0/)
