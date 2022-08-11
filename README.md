@@ -23,16 +23,16 @@ Below is an example of a TSA explanation of a person's activity across time (x-a
 * tqdm
 
 ### Data
-We use an artificial data set and a real-world dataset: activities of daily living (ADL) from binary sensors [^2] dataset which is openly 
-available in the [UCI ML Repository](https://archive.ics.uci.edu/ml/datasets/Activities+of+Daily+Living+%28ADLs%29+Recognition+Using+Binary+Sensors).
-
-The code for the datathis is in the `preprocessing` and folders. A constant bias sensor activation is added. Additionally, the classification task is broken down to each second, 
+We use an artificial data set and a real-world data set of time series classification: 
+1. Synthetic data set. The dataset is available as a `.csv` and `.pkl` file in `data\synthetic`. That folder also contains the Jupyter Notebook for generating the data set.
+2. Activities of daily living (ADL) from binary sensors [^2] data set which is openly 
+available in the [UCI ML Repository](https://archive.ics.uci.edu/ml/datasets/Activities+of+Daily+Living+%28ADLs%29+Recognition+Using+Binary+Sensors). This data set is preprocessed, the corresponding scripts can be found in `data\adl\preprocessing`. A constant bias sensor activation is added. Additionally, the classification task is broken down to each second, 
 meaning that the models predict the subject's current activity at each second.
 
-#### Instructions
+#### Instructions for preprocessing the ADL data set
 1. Download the data from the [UCI ML Repository](https://archive.ics.uci.edu/ml/datasets/Activities+of+Daily+Living+%28ADLs%29+Recognition+Using+Binary+Sensors).
 2. Store the csv files in `data/raw/UCI ADL Binary Dataset`
-3. Run `python preprocessing/adl_data_writing.py` to generate the "long time series" data.
+3. Run `python preprocessing/adl_data_writing.py` to generate the "long time series" data, saved in `.csv` files.
 
 ### SNN model building
 The SNN models use LIF neurons and were implemented as recurrent networks in discrete time trained 
@@ -47,12 +47,12 @@ For the explanation experiments, the whole time series per subject is maintained
 Three SNNs with one, two, three layers respectively are tuned and trained on the ADL task, and their predictions are explained by TSA.
 
 The following hyperparameters were tuned based on the NLL loss on the validation set after 20 epochs training: $\Delta t, \tau_{syn}, \tau_{mem}$, learning rate, batch size, hidden layer sizes. 
-Then, the models are trained with early stopping and a patience of 20 epochs. The scripts to rerun the tuning and training 
+Then, the models are trained with early stopping and a patience of 20 epochs. For the synthetic task, the hyperparameter tuning is skipped and fixed hyperparameters are specified. The scripts to rerun the tuning and training 
 are located in `models`, but the tuned hyperparameters and trained model weights are also available. 
 
 #### Instructions
-* Run `python data/data_generation.py` to generate and save the datasets in the *times, units* format. `data/dataset900.pkl` then corresponds to the dataset used for tuning and training, while `data/dataset_max.pkl` will be used for the TSA experiments.
-* Run `python models/tuning_1L.py`, `python models/tuning_1L.py`, `python models/tuning_3L.py` to tune the hyperparameters of the different SNN models respectively.
+* Run `python data/adl/adl_data_generation.py` to generate and save the ADL data sets in the *times, units* format. `data/adl/dataset900.pkl` then corresponds to the dataset used for tuning and training, while `data/adl/dataset_max.pkl` will be used for the TSA experiments. For the synthetic data set, the data is directly generated in the right format.
+* Run `python models/adl/tuning_1L.py`, `python models/adl/tuning_1L.py`, `python models/adl/tuning_3L.py` to tune the hyperparameters of the different SNN models respectively.
 * Alternatively, the chosen hyperparameters can be inspected as `models/best_params_1L.pkl, models/best_params_2L.pkl, models/best_params_3L.pkl` respectively.
 * Run `python models/training_1L.py`, `python models/training_2L.py`, `python models/training_3L.py` to train the SNN models.
 * Alternatively, the trained weights are available at `models/weights_1L_epoch4.pt, models/weights_2L_epoch63.pt, models/weights_3L_epoch48.pt`.
