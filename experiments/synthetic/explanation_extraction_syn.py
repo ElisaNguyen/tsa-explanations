@@ -80,7 +80,7 @@ def extract_explanations_for_quantitative_analysis(testset_t, explanation_type, 
         e = attribution[prediction]
 
         testset_explanations[t] = (e.detach(), prediction)
-        save_obj(testset_explanations, '../evaluation/' + filename + '.pkl')
+        save_obj(testset_explanations, 'explanations/' + filename + '.pkl')
 
 
 expl_types = ['s', 'ns', 'sam']
