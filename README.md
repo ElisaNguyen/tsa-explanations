@@ -2,8 +2,8 @@
 
 This repository contains the Python 3 code for Temporal Spike Attribution (TSA), a method to extract 
 feature attribution explanations for spiking neural networks (SNN). 
-TSA is demonstrated on time-series data with SNN models built as recurrent networks in discrete 
-time.[^1]
+TSA is demonstrated on 2 time-series data sets with SNN models built as recurrent networks in discrete 
+time.[^1] 
 
 TSA generates class-wise feature attribution maps that can be overlaid with the spiking data to explain a 
 certain prediction of a SNN, based on model internal variables (i.e., spike trains, learned weights). The intensity corresponds
@@ -12,6 +12,9 @@ to the attribution value and the color corresponds to positive (red) or negative
 Below is an example of a TSA explanation of a person's activity across time (x-axis) that the SNN correctly predicts as *eating breakfast*.
 
 ![TSA-NS](https://github.com/ElisaNguyen/tsa-explanations/blob/master/images/one_ns_177081_breakfast.png)
+
+This repository is structured in folders and subfolders, where `adl` and `synthetic` refer to the two data sets that were used in the experiments. 
+The corresponding scripts are located in the folders. 
 
 ### Required Python packages
 * numpy
@@ -51,12 +54,12 @@ Then, the models are trained with early stopping and a patience of 20 epochs. Fo
 are located in `models`, but the tuned hyperparameters and trained model weights are also available.
 
 #### Instructions
-* Run `python data/adl/adl_data_generation.py` to generate and save the ADL data sets in the *times, units* format. `data/adl/dataset900.pkl` then corresponds to the dataset used for tuning and training, while `data/adl/dataset_max.pkl` will be used for the TSA experiments. For the synthetic data set, the data is directly generated in the right format.
+* Run `python data/adl/adl_data_generation.py` to generate and save the ADL data sets in the *times, units* format. `data/adl/dataset900.pkl` then corresponds to the dataset used for tuning and training, while `data/adl/dataset_max.pkl` will be used for the TSA experiments. For the synthetic data set, the data is directly generated in the right format and available in `data/synthetic`.
 * Create subfolders `training/results_xL` where `x` is replaced by the number of layers in your model (i.e., 1, 2, 3) in the `adl` and in the `synthetic` folders. In the `adl` folder, also create the same subfolders for `tuning`. 
-* Run `python models/adl/tuning_1L.py`, `python models/adl/tuning_1L.py`, `python models/adl/tuning_3L.py` to tune the hyperparameters of the different SNN models respectively.
-* Alternatively, the chosen hyperparameters can be inspected as `models/best_params_1L.pkl, models/best_params_2L.pkl, models/best_params_3L.pkl` respectively.
-* Run `python models/training_1L.py`, `python models/training_2L.py`, `python models/training_3L.py` to train the SNN models.
-* Alternatively, the trained weights are available at `models/weights_1L_epoch4.pt, models/weights_2L_epoch63.pt, models/weights_3L_epoch48.pt`.
+* Run `python models/adl/tuning_1L.py`, `python models/adl/tuning_1L.py`, `python models/adl/tuning_3L.py` to tune the hyperparameters of the different SNN models for the ADL data set respectively.
+* Alternatively, the chosen hyperparameters for the ADL data set can be inspected as `models/best_params_1L.pkl, models/best_params_2L.pkl, models/best_params_3L.pkl` respectively.
+* To train, run `python model/adl/training_1L.py`, `python models/adl/training_2L.py`, `python models/adl/training_3L.py` for the ADL data set and `python model/synthetic/training_1L.py`, `python models/synthetic/training_2L.py`, `python models/synthetic/training_3L.py`.
+* Alternatively, the trained weights are available as `.pt` files in the respective model folders.
 
 ### Explanation extraction with TSA
 
